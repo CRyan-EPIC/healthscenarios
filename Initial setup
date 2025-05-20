@@ -1,7 +1,10 @@
 #!/bin/bash
 sudo apt update
-sudo apt install tmux
+sudo apt install tmux curl git wget -y
 cd ~/healthscenarios
 python3 -m venv venv
 source venv/bin/activate
 pip install ollama inputimeout
+
+curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin
+ln -s ~/.local/kitty.app/bin/kitty ~/.local/bin/
