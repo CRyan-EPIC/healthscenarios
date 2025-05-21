@@ -56,7 +56,7 @@ while True:
     # Stream the response tokens as they arrive
     print("Patient: ", end='', flush=True)
     response_content = ""
-    for chunk in ollama.chat(model="gemma3:1b", messages=messages, stream=True):
+    for chunk in ollama.chat(model="llama3.2:3b", messages=messages, stream=True):
         token = chunk['message']['content']
         print(token, end='', flush=True)
         response_content += token
