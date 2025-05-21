@@ -10,7 +10,7 @@ ollama pull gemma3:4b
 #Setup the python3 venv
 python3 -m vnv ~/venv
 source venv/bin/activate
-pip install ollama inputimeout
+pip install ollama inputimeout tqdm
 cd ~/healthscenarios
 
 curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin
