@@ -5,6 +5,8 @@ sudo apt install tmux curl git wget python3-venv -y
 #Install ollama
 curl -fsSL https://ollama.com/install.sh | sh
 ollama pull llama3.2:3b
+ollama pull llama3.2:1b
+ollama pull gemma3:4b
 
 #Setup the python3 venv
 python3 -m vnv ~/venv
