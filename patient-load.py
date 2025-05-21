@@ -1,5 +1,7 @@
 import ollama
 import os
+import time
+from tqdm import tqdm
 from inputimeout import inputimeout, TimeoutOccurred
 
 choice=int(input("Put your table number here. Enter a number 1-16."))
@@ -23,44 +25,50 @@ patient = [
     [16, "Olivia", "You are pretending to be an 15-year-old girl named Emily. You’re in the nurse’s office after hitting your head in PE. You were playing a game and accidentally bumped into someone and fell back, hitting your head on the floor. Now you feel kind of weird. You have a slight headache, you’re a little dizzy, and it’s hard to concentrate. You feel a bit slow and just not like yourself.You might say things like, “I feel kind of foggy,” “I’m dizzy,” “My head hurts a little,” or “I don’t remember if I fell forward or backward.” You might also squint at the lights or seem extra tired.Stay in character like a real 11-year-old. Don’t use technical words like “concussion,” “neurological,” or “cognitive” unless a student directly asks about them. Only answer **one question at a time**, and let the students piece it together.Do not talk about sex, illegal drugs, or politics. Don’t respond to insults. Don’t diagnose yourself. Just describe how you feel and what happened using your own words.Do not repeat answers or sentences. You do not know your medical history."]
 ]
 
-# The main system prompt (always keep this)
+# Get selected patient's scenario
+selected_patient = patient[choice - 1]
+
+# Main system prompt
 main_prompt = {
     "role": "user",
-    "content": print(patient[choice][2])
+    "content": selected_patient[2]
 }
-
-#"You are pretending to be a 6th grade girl named Emily. You have Type 1 Diabetes, and today you’re not feeling well. You’re in the school nurse’s office. You’re shaky, sweaty, and your heart feels like it’s beating fast. You’re having a hard time focusing and feel a little dizzy. You’re also kind of embarrassed and nervous. You know you have diabetes, but you don’t feel good enough to explain everything clearly. You might mention things like your “blood sugar,” needing a snack, or that you have something in your backpack. You may also say things that suggest you're low on sugar, like, “I just feel weird” or “I think I need juice. Stay in character like a real middle schooler - not super technical, just how a kid would describe it when they’re not feeling great. Don't use adult medical language. Only answer what students ask you. Don’t give away everything at once. Let them practice figuring out what’s going on. Don't talk about sex, illegal drugs, or politics. Only give one respond per question. No one other than you and the doctor are in the room. Don't respond to insults. Don't say the same thing twice. You have little medical skills with your ailment."
 messages = [main_prompt]
 
 # How many previous exchanges (user+assistant) to keep
 MAX_EXCHANGES = 3
 
+# Start conversation loop
 while True:
     try:
         prompt = inputimeout(prompt="Doctor: ", timeout=120)
     except TimeoutOccurred:
-        os.system('clear')
+        os.system('cls' if os.name == 'nt' else 'clear')
         continue
 
     if prompt.lower() in ['quit', 'exit']:
         break
 
-    # Add the new user message
+    # Add user's question
     messages.append({"role": "user", "content": prompt})
 
-    # Truncate history: keep main prompt + last N*2 messages (user+assistant)
-    # Exclude the main prompt, then keep the last N*2 messages
+    # Truncate message history
     if len(messages) > (1 + MAX_EXCHANGES * 2):
-        messages = [main_prompt] + messages[-MAX_EXCHANGES*2:]
+        messages = [main_prompt] + messages[-MAX_EXCHANGES * 2:]
 
-    # Stream the response tokens as they arrive
+    # Show wait message and progress bar
+    print("\nPlease wait... don't type anything. Processing...\n")
+    for _ in tqdm(range(20), desc="Talking to patient", ncols=75):
+        time.sleep(0.05)
+
+    # Stream and display LLM response
     print("Patient: ", end='', flush=True)
     response_content = ""
     for chunk in ollama.chat(model="llama3.2:3b", messages=messages, stream=True):
         token = chunk['message']['content']
         print(token, end='', flush=True)
         response_content += token
-    print()  # Newline after the streamed response
+    print()
 
-    # Add the assistant's response
+    # Save assistant response
     messages.append({"role": "assistant", "content": response_content})
