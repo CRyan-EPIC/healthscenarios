@@ -1,18 +1,26 @@
 import socket
+import os
+import threading
+import time
 
 SERVER_IP = '192.168.1.100'
 SERVER_PORT = 65432
 
+def clear_screen_periodically():
+    while True:
+        time.sleep(30)
+        os.system('cls' if os.name == 'nt' else 'clear')
+
 def main():
     last_five = []
+    threading.Thread(target=clear_screen_periodically, daemon=True).start()
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.connect((SERVER_IP, SERVER_PORT))
-        # Receive patient name from server
         patient_name = sock.recv(1024).decode('utf-8').strip()
 
         while True:
-            query = input(f"\nDoctor: ").strip()
+            query = input(f"\nEnter your question for {patient_name}: ").strip()
             if query.lower() == 'exit':
                 break
 
@@ -21,18 +29,9 @@ def main():
                 last_five = last_five[-5:]
 
             sock.sendall(query.encode('utf-8'))
-
-            print(f"\n{patient_name}:")
-            # Stream and print tokens as they arrive
-            buffer = ""
-            while True:
-                chunk = sock.recv(64).decode('utf-8')
-                buffer += chunk
-                if "<<END_OF_RESPONSE>>" in buffer:
-                    # Print everything up to the marker
-                    print(buffer.replace("<<END_OF_RESPONSE>>", ""), end="", flush=True)
-                    break
-                print(chunk, end="", flush=True)
+            response = sock.recv(4096).decode('utf-8')
+            print("\nResponse from patient:")
+            print(response)
 
 if __name__ == '__main__':
     main()
