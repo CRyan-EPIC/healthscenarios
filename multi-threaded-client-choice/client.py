@@ -20,7 +20,7 @@ patients = [
     [13, "Ethan", ""],
     [14, "Jackson", ""],
     [15, "Grace", ""],
-    [16, "Lucas", ""]
+    [16, "Olivia", ""]
 ]
 
 SERVER_IP = '192.168.1.100'   # Change to your server's IP if needed
