@@ -7,9 +7,9 @@ import getpass
 
 SERVER_IP = '192.168.1.100'
 SERVER_PORT = 65432
-
-RECONNECT_DELAY = 3  # seconds between reconnect attempts
-SOCKET_TIMEOUT = 30  # seconds to wait for server response before retry
+SOCKET_TIMEOUT = 30
+RECONNECT_DELAY = 3
+IDLE_TIMEOUT = 60  # seconds
 
 patients = [
     [1, "Julian"],
@@ -29,6 +29,10 @@ patients = [
     [15, "Grace"],
     [16, "Olivia"]
 ]
+
+last_activity = time.time()
+idle_lock = threading.Lock()
+idle_triggered = threading.Event()
 
 def receive_full_response(sock):
     buffer = ""
@@ -84,26 +88,56 @@ def choose_scenario():
         except ValueError:
             print("Numbers only please.")
 
+def idle_mumble_thread(sock_ref, patient_name_ref, scenario_ref):
+    global last_activity
+    while True:
+        time.sleep(1)
+        if idle_triggered.is_set():
+            continue
+        if time.time() - last_activity > IDLE_TIMEOUT:
+            idle_triggered.set()
+            with idle_lock:
+                try:
+                    sock = sock_ref[0]
+                    patient_name = patient_name_ref[0]
+                    scenario = scenario_ref[0]
+                    sock.sendall("...".encode('utf-8'))
+                    response = receive_full_response(sock)
+                except Exception as e:
+                    print(f"\n[Idle mumble failed: {e}] Attempting to reconnect...")
+                    sock, patient_name, response = reconnect_and_resend(scenario, "...")
+                    sock_ref[0] = sock
+                    patient_name_ref[0] = patient_name
+                print(f"\n{patient_name_ref[0]}: {response}")
+                print("\nDoctor: ", end='', flush=True)
+                last_activity = time.time()
+            idle_triggered.clear()
+
 def main():
+    global last_activity
     password = getpass.getpass("Enter password to use the client: ")
     if password != "cyberlab":
         print("Incorrect password. Exiting.")
         sys.exit(1)
 
     scenario = choose_scenario()
-
-    # --- Clear the screen after selection ---
     os.system('cls' if os.name == 'nt' else 'clear')
-
-    # --- Print scenario selection only ---
     print(f"Choose scenario (1-16): {scenario}")
 
     sock, patient_name = connect_to_server(scenario)
     last_query = None
 
+    # For mutable references in the idle thread
+    sock_ref = [sock]
+    patient_name_ref = [patient_name]
+    scenario_ref = [scenario]
+
+    threading.Thread(target=idle_mumble_thread, args=(sock_ref, patient_name_ref, scenario_ref), daemon=True).start()
+
     while True:
         try:
             query = input("\nDoctor: ").strip()
+            last_activity = time.time()
             if query.lower() == 'exit':
                 break
             if query.lower() == '.switch':
@@ -112,6 +146,10 @@ def main():
                 os.system('cls' if os.name == 'nt' else 'clear')
                 print(f"Choose scenario (1-16): {scenario}")
                 sock, patient_name = connect_to_server(scenario)
+                # Update references for idle thread
+                sock_ref[0] = sock
+                patient_name_ref[0] = patient_name
+                scenario_ref[0] = scenario
                 continue
             last_query = query
             while True:
@@ -124,7 +162,11 @@ def main():
                     sock.close()
                     sock, patient_name, response = reconnect_and_resend(scenario, last_query)
                     print("[Reconnected. Resending your last question.]")
+                    # Update references for idle thread
+                    sock_ref[0] = sock
+                    patient_name_ref[0] = patient_name
             print(f"\n{patient_name}: {response}")
+            idle_triggered.clear()
         except KeyboardInterrupt:
             print("\nExiting.")
             break
