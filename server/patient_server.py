@@ -52,18 +52,30 @@ def handle_client_connection(client_socket, prompt, patient_name, model):
             query = client_socket.recv(1024).decode('utf-8').strip()
             if not query:
                 break
+
             full_prompt = f"{prompt}\n\nStudent asks: {query}\n{patient_name} answers:"
-            ollama_response = ollama.chat(
+
+            # Stream Ollama response
+            stream = ollama.chat(
                 model=model,
-                messages=[{"role": "user", "content": full_prompt}]
+                messages=[{"role": "user", "content": full_prompt}],
+                stream=True
             )
-            response_text = ollama_response['message']['content']
-            client_socket.sendall(response_text.encode('utf-8'))
+
+            for chunk in stream:
+                # Each chunk is a dict with a 'message' key containing 'content'
+                token = chunk['message']['content']
+                # Send each token/chunk to the client
+                client_socket.sendall(token.encode('utf-8'))
+            # Send a special marker to indicate end of stream
+            client_socket.sendall(b"<<END_OF_RESPONSE>>")
+
     except Exception as e:
         error_msg = f"Error: {str(e)}"
         client_socket.sendall(error_msg.encode('utf-8'))
     finally:
         client_socket.close()
+
 
 
 def main():
