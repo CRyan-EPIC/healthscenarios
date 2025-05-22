@@ -38,6 +38,7 @@ def main():
     print(f"Scenario '{patient_name}' selected. Using model '{model}'. Waiting for client questions...")
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket.bind((SERVER_IP, SERVER_PORT))
         server_socket.listen(15)  # backlog of 15 connections
         print(f"Server listening on {SERVER_IP}:{SERVER_PORT}")
