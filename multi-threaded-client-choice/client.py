@@ -5,6 +5,9 @@ import time
 import sys
 import getpass
 
+SERVER_IP = '192.168.1.100'
+SERVER_PORT = 65432
+
 patients = [
     [1, "Julian"],
     [2, "Emily"],
