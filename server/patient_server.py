@@ -56,4 +56,19 @@ def handle_client_connection(client_socket):
     finally:
         client_socket.close()
 
-# Rest of server code remains same as original
+# Main function
+def main():
+    idx, patient_name, prompt = select_scenario()
+    print(f"Scenario '{patient_name}' selected. Waiting for client questions...")
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+        server_socket.bind((SERVER_IP, SERVER_PORT))
+        server_socket.listen()
+        print(f"Server listening on {SERVER_IP}:{SERVER_PORT}")
+
+        while True:
+            client_socket, addr = server_socket.accept()
+            print(f"Connection from {addr}")
+            handle_client_connection(client_socket, prompt, patient_name)
+
+if __name__ == '__main__':
+    main()
