@@ -22,12 +22,11 @@ def main():
         patient_name = sock.recv(1024).decode('utf-8').strip()
 
         while True:
-            # Only clear after a response, never while typing
             if clear_flag.is_set():
                 os.system('cls' if os.name == 'nt' else 'clear')
                 clear_flag.clear()
 
-            query = input(f"\nEnter your question for {patient_name}: ").strip()
+            query = input(f"\nDoctor: ").strip()
             if query.lower() == 'exit':
                 break
 
@@ -37,8 +36,7 @@ def main():
 
             sock.sendall(query.encode('utf-8'))
             response = sock.recv(4096).decode('utf-8')
-            print("\nResponse from patient:")
-            print(response)
+            print(f"\n{patient_name}: {response}")
 
 if __name__ == '__main__':
     main()
