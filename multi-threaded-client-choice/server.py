@@ -42,6 +42,15 @@ def handle_client_connection(client_socket, patients, model):
             if not query:
                 break
 
+            # Handle .reset command
+            if query == ".reset":
+                annoyance_level = 0
+                last_annoyance_time = None
+                reset_msg = f"{patient_name} seems to relax and returns to their original mood. 😊"
+                client_socket.sendall(reset_msg.encode('utf-8'))
+                client_socket.sendall(b"<<END_OF_RESPONSE>>")
+                continue
+
             current_time = time.time()
             # Reset annoyance if more than 5 minutes have passed since last "..."
             if last_annoyance_time and (current_time - last_annoyance_time) > 300:
