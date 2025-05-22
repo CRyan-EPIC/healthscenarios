@@ -36,23 +36,25 @@ def handle_client_connection(client_socket, patients, model):
 
         annoyance_level = 0
         last_annoyance_time = None
+        conversation_history = []  # List of (student_question, patient_answer)
 
         while True:
             query = client_socket.recv(1024).decode('utf-8').strip()
             if not query:
                 break
 
-            # Handle .reset command
+            # .reset command resets mood and history
             if query == ".reset":
                 annoyance_level = 0
                 last_annoyance_time = None
+                conversation_history = []
                 reset_msg = f"{patient_name} seems to relax and returns to their original mood. 😊"
                 client_socket.sendall(reset_msg.encode('utf-8'))
                 client_socket.sendall(b"<<END_OF_RESPONSE>>")
                 continue
 
             current_time = time.time()
-            # Reset annoyance if more than 5 minutes have passed since last "..."
+            # Reset annoyance if >5 minutes since last "..."
             if last_annoyance_time and (current_time - last_annoyance_time) > 300:
                 annoyance_level = 0
                 last_annoyance_time = None
@@ -63,7 +65,12 @@ def handle_client_connection(client_socket, patients, model):
                     annoyance_level -= 1
                 last_annoyance_time = None
 
-            # If user is idle or sends "...", escalate impatience quickly
+            # Prepare conversation history string (last 8 Q&A pairs)
+            history_str = ""
+            for q, a in conversation_history[-8:]:
+                history_str += f"Student: {q}\n{patient_name}: {a}\n"
+
+            # Compose prompt
             if query == "...":
                 annoyance_level += 1
                 last_annoyance_time = current_time
@@ -89,27 +96,39 @@ def handle_client_connection(client_socket, patients, model):
                     )
                 full_prompt = (
                     f"{prompt}\n\n"
+                    f"Conversation so far:\n{history_str}"
+                    f"Student: ...\n"
                     f"{desc}\n"
-                    f"Write {patient_name}'s response showing their {mood} feeling, using an emoji instead of 'ugh'."
+                    f"Write {patient_name}'s response showing their {mood} feeling, using an emoji instead of 'ugh'. "
+                    f"Do not repeat previous answers; use new phrases and details each time."
                     f"\n{patient_name} answers:"
                 )
             else:
                 mood = "neutral"
                 full_prompt = (
                     f"{prompt}\n\n"
-                    f"Student asks: {query}\n"
-                    f"{patient_name} answers (in a {mood} and cooperative mood, never insulting or disrespectful, and using emojis only if appropriate):"
+                    f"Conversation so far:\n{history_str}"
+                    f"Student: {query}\n"
+                    f"{patient_name} answers (in a {mood} and cooperative mood, never insulting or disrespectful, and using emojis only if appropriate. "
+                    f"Do not repeat previous answers; use new phrases and details each time.):"
                 )
 
+            # Get response from LLM
             stream = ollama.chat(
                 model=model,
                 messages=[{"role": "user", "content": full_prompt}],
                 stream=True
             )
+            answer = ""
             for chunk in stream:
                 token = chunk['message']['content']
                 client_socket.sendall(token.encode('utf-8'))
+                answer += token
             client_socket.sendall(b"<<END_OF_RESPONSE>>")
+
+            # Save this Q&A to conversation history
+            conversation_history.append((query, answer.strip()))
+
     except Exception as e:
         error_msg = f"Error: {str(e)}"
         client_socket.sendall(error_msg.encode('utf-8'))
