@@ -12,7 +12,7 @@ def main():
         patient_name = sock.recv(1024).decode('utf-8').strip()
 
         while True:
-            query = input(f"\nEnter your question for {patient_name}: ").strip()
+            query = input(f"\Doctor for {patient_name}: ").strip()
             if query.lower() == 'exit':
                 break
 
