@@ -36,7 +36,7 @@ def handle_client_connection(client_socket, patients, model):
 
         annoyance_level = 0
         last_annoyance_time = None
-        conversation_history = []  # List of (student_question, patient_answer)
+        conversation_history = []
 
         while True:
             query = client_socket.recv(1024).decode('utf-8').strip()
@@ -75,31 +75,34 @@ def handle_client_connection(client_socket, patients, model):
                 annoyance_level += 1
                 last_annoyance_time = current_time
                 if annoyance_level == 1:
-                    mood = "impatient"
+                    mood = "slightly impatient"
                     desc = (
                         f"The student is silent or ignoring {patient_name}. "
                         f"{patient_name} is starting to get {mood} and responds accordingly, "
-                        f"but never insults or is disrespectful. Use an emoji like 🙄, 😒, 😑, or 😕 instead of 'ugh'."
+                        f"but never insults, never gets angry, and never uses strong language. "
+                        f"Stay gentle, maybe use a mild emoji like 😕, 😑, or 🙄 to show slight agitation."
                     )
                 elif annoyance_level == 2:
-                    mood = "annoyed"
+                    mood = "mildly agitated"
                     desc = (
                         f"The student keeps ignoring {patient_name}. "
                         f"{patient_name} is now {mood} and responds accordingly, "
-                        f"but never insults or is disrespectful. Use an emoji like 😒, 😑, or 😕 instead of 'ugh'."
+                        f"but never insults, never gets angry, and never uses strong language. "
+                        f"Stay gentle and polite, maybe use a mild emoji like 😕, 😑, or 🙄."
                     )
                 else:
-                    mood = "frustrated"
+                    mood = "a little frustrated"
                     desc = (
-                        f"{patient_name} feels ignored and is now {mood}. Respond with clear frustration, "
-                        f"but never insult or disrespect the student. Use an emoji like 😑, 😕, or 🙄 instead of 'ugh'."
+                        f"{patient_name} feels a little frustrated from being ignored, but stays polite and gentle. "
+                        f"Never insult or disrespect the student, and never use strong language. "
+                        f"Use a mild emoji like 😕, 😑, or 🙄 to show gentle agitation."
                     )
                 full_prompt = (
                     f"{prompt}\n\n"
                     f"Conversation so far:\n{history_str}"
                     f"Student: ...\n"
                     f"{desc}\n"
-                    f"Write {patient_name}'s response showing their {mood} feeling, using an emoji instead of 'ugh'. "
+                    f"Write {patient_name}'s response showing their {mood} feeling, using only mild emojis (like 😕, 😑, 🙄) to show gentle agitation. "
                     f"Do not repeat previous answers; use new phrases and details each time."
                     f"\n{patient_name} answers:"
                 )
@@ -109,7 +112,7 @@ def handle_client_connection(client_socket, patients, model):
                     f"{prompt}\n\n"
                     f"Conversation so far:\n{history_str}"
                     f"Student: {query}\n"
-                    f"{patient_name} answers (in a {mood} and cooperative mood, never insulting or disrespectful, and using emojis only if appropriate. "
+                    f"{patient_name} answers (in a {mood} and cooperative mood, never insulting or disrespectful, and using only mild emojis if appropriate. "
                     f"Do not repeat previous answers; use new phrases and details each time.):"
                 )
 
