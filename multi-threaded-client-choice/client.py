@@ -27,10 +27,6 @@ patients = [
     [16, "Olivia"]
 ]
 
-RECONNECT_DELAY = 3  # seconds between reconnect attempts
-SOCKET_TIMEOUT = 30  # seconds to wait for server response before retry
-
-
 last_activity = time.time()
 input_lock = threading.Lock()
 pending_prompt = threading.Event()
@@ -64,7 +60,7 @@ def receive_full_response(sock):
             response = buffer.replace("<<END_OF_RESPONSE>>", "")
             return response
 
-def idle_mumble(sock, patient_name):
+def idle_mumble(sock, patient_name, scenario):
     global last_activity
     while True:
         time.sleep(1)
@@ -76,7 +72,9 @@ def idle_mumble(sock, patient_name):
                     response = receive_full_response(sock)
                     print(f"\n{patient_name}: {response}")
                 except Exception as e:
-                    print(f"\n[Idle mumble failed: {e}]")
+                    print(f"\n[Idle mumble failed: {e}] Attempting to reconnect...")
+                    sock, patient_name = reconnect_and_resend(scenario, "...")
+                    print(f"\n{patient_name}: {response}")
                 print("\nDoctor: ", end='', flush=True)
                 pending_prompt.set()
                 last_activity = time.time()
@@ -88,12 +86,23 @@ def connect_to_server(scenario):
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(SOCKET_TIMEOUT)
             sock.connect((SERVER_IP, SERVER_PORT))
-            sock.sendall(str(scenario).encode('utf-8'))
+            sock.sendall(str(scenario).encode('utf-8'))  # Send scenario number first
             patient_name = sock.recv(1024).decode('utf-8').strip()
             return sock, patient_name
         except Exception as e:
             print(f"Connection failed ({e}), retrying in {RECONNECT_DELAY} seconds...")
             time.sleep(RECONNECT_DELAY)
+
+def reconnect_and_resend(scenario, last_query):
+    sock, patient_name = connect_to_server(scenario)
+    # Resend the last query after reconnecting
+    try:
+        sock.sendall(last_query.encode('utf-8'))
+        response = receive_full_response(sock)
+    except Exception as e:
+        print(f"[Resend failed after reconnect: {e}]")
+        response = "[No response after reconnect]"
+    return sock, patient_name, response
 
 def main():
     global last_activity
@@ -121,7 +130,7 @@ def main():
     sock, patient_name = connect_to_server(scenario)
 
     threading.Thread(target=clear_screen_if_inactive, args=(patient_name,), daemon=True).start()
-    threading.Thread(target=idle_mumble, args=(sock, patient_name), daemon=True).start()
+    threading.Thread(target=idle_mumble, args=(sock, patient_name, scenario), daemon=True).start()
 
     last_query = None
     while True:
@@ -143,10 +152,8 @@ def main():
             except (TimeoutError, ConnectionError) as e:
                 print(f"\n[Lost connection: {e}] Attempting to reconnect...")
                 sock.close()
-                sock, patient_name = connect_to_server(scenario)
+                sock, patient_name, response = reconnect_and_resend(scenario, last_query)
                 print("[Reconnected. Resending your last question.]")
-                sock.sendall(last_query.encode('utf-8'))
-                response = receive_full_response(sock)
             print(f"\n{patient_name}: {response}")
             last_activity = time.time()
         except KeyboardInterrupt:
