@@ -46,21 +46,19 @@ def select_model():
 
 def handle_client_connection(client_socket, prompt, patient_name, model):
     try:
-        query = client_socket.recv(1024).decode('utf-8').strip()
-        if not query:
-            client_socket.sendall(b"No query received.")
-            return
+        while True:
+            query = client_socket.recv(1024).decode('utf-8').strip()
+            if not query:
+                break  # Client closed connection
 
-        full_prompt = f"{prompt}\n\nStudent asks: {query}\n{patient_name} answers:"
+            full_prompt = f"{prompt}\n\nStudent asks: {query}\n{patient_name} answers:"
 
-        # Correct Ollama API usage
-        ollama_response = ollama.chat(
-            model=model,
-            messages=[{"role": "user", "content": full_prompt}]
-        )
-        response_text = ollama_response['message']['content']
-        client_socket.sendall(response_text.encode('utf-8'))
-
+            ollama_response = ollama.chat(
+                model=model,
+                messages=[{"role": "user", "content": full_prompt}]
+            )
+            response_text = ollama_response['message']['content']
+            client_socket.sendall(response_text.encode('utf-8'))
     except Exception as e:
         error_msg = f"Error: {str(e)}"
         client_socket.sendall(error_msg.encode('utf-8'))
