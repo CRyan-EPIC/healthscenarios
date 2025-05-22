@@ -34,7 +34,7 @@ last_activity = time.time()
 idle_lock = threading.Lock()
 idle_triggered = threading.Event()
 
-def receive_full_response(sock):
+def stream_response(sock):
     buffer = ""
     while True:
         try:
@@ -45,8 +45,14 @@ def receive_full_response(sock):
             raise ConnectionError("Server closed connection.")
         buffer += chunk
         if "<<END_OF_RESPONSE>>" in buffer:
-            response = buffer.replace("<<END_OF_RESPONSE>>", "")
-            return response
+            idx = buffer.index("<<END_OF_RESPONSE>>")
+            to_yield = buffer[:idx]
+            if to_yield:
+                yield to_yield
+            return
+        if buffer:
+            yield buffer
+            buffer = ""
 
 def connect_to_server(scenario):
     while True:
@@ -68,8 +74,7 @@ def reconnect_and_resend(scenario, last_query):
         sock, patient_name = connect_to_server(scenario)
         try:
             sock.sendall(last_query.encode('utf-8'))
-            response = receive_full_response(sock)
-            return sock, patient_name, response
+            return sock, patient_name
         except Exception as e:
             print(f"[Resend failed after reconnect: {e}] Retrying...")
             sock.close()
@@ -102,14 +107,19 @@ def idle_mumble_thread(sock_ref, patient_name_ref, scenario_ref):
                     patient_name = patient_name_ref[0]
                     scenario = scenario_ref[0]
                     sock.sendall("...".encode('utf-8'))
-                    response = receive_full_response(sock)
+                    print(f"\n{patient_name}: ", end='', flush=True)
+                    for token in stream_response(sock):
+                        print(token, end='', flush=True)
+                    print("\nDoctor: ", end='', flush=True)
                 except Exception as e:
                     print(f"\n[Idle mumble failed: {e}] Attempting to reconnect...")
-                    sock, patient_name, response = reconnect_and_resend(scenario, "...")
+                    sock, patient_name = reconnect_and_resend(scenario, "...")
                     sock_ref[0] = sock
                     patient_name_ref[0] = patient_name
-                print(f"\n{patient_name_ref[0]}: {response}")
-                print("\nDoctor: ", end='', flush=True)
+                    print(f"\n{patient_name}: ", end='', flush=True)
+                    for token in stream_response(sock):
+                        print(token, end='', flush=True)
+                    print("\nDoctor: ", end='', flush=True)
                 last_activity = time.time()
             idle_triggered.clear()
 
@@ -125,7 +135,6 @@ def main():
     print(f"Choose scenario (1-16): {scenario}")
 
     sock, patient_name = connect_to_server(scenario)
-    last_query = None
 
     # For mutable references in the idle thread
     sock_ref = [sock]
@@ -133,6 +142,8 @@ def main():
     scenario_ref = [scenario]
 
     threading.Thread(target=idle_mumble_thread, args=(sock_ref, patient_name_ref, scenario_ref), daemon=True).start()
+
+    last_query = None
 
     while True:
         try:
@@ -155,17 +166,19 @@ def main():
             while True:
                 try:
                     sock.sendall(query.encode('utf-8'))
-                    response = receive_full_response(sock)
+                    print(f"\n{patient_name}: ", end='', flush=True)
+                    for token in stream_response(sock):
+                        print(token, end='', flush=True)
+                    print()
                     break  # Success, break inner loop
                 except (TimeoutError, ConnectionError) as e:
                     print(f"\n[Lost connection: {e}] Attempting to reconnect...")
                     sock.close()
-                    sock, patient_name, response = reconnect_and_resend(scenario, last_query)
+                    sock, patient_name = reconnect_and_resend(scenario, last_query)
                     print("[Reconnected. Resending your last question.]")
                     # Update references for idle thread
                     sock_ref[0] = sock
                     patient_name_ref[0] = patient_name
-            print(f"\n{patient_name}: {response}")
             idle_triggered.clear()
         except KeyboardInterrupt:
             print("\nExiting.")
