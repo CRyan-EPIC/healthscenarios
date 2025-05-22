@@ -7,6 +7,8 @@ import getpass
 
 SERVER_IP = '192.168.1.100'
 SERVER_PORT = 65432
+RECONNECT_DELAY = 3  # seconds between reconnect attempts
+SOCKET_TIMEOUT = 30  # seconds to wait for server response before retry
 
 patients = [
     [1, "Julian"],
