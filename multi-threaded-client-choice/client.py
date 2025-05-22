@@ -3,6 +3,7 @@ import os
 import threading
 import time
 import sys
+import getpass
 
 patients = [
     [1, "Julian"],
@@ -23,7 +24,7 @@ patients = [
     [16, "Olivia"]
 ]
 
-SERVER_IP = '192.168.1.100'   # Change to your server's IP if needed
+SERVER_IP = '192.168.1.100'
 SERVER_PORT = 65432
 
 last_activity = time.time()
@@ -32,9 +33,8 @@ pending_prompt = threading.Event()
 
 def clear_screen_and_prompt(patient_name):
     os.system('cls' if os.name == 'nt' else 'clear')
-    # Show Doctor: prompt after clearing
     print("\nDoctor: ", end='', flush=True)
-    pending_prompt.set()  # Signal to main loop to handle input
+    pending_prompt.set()
 
 def clear_screen_if_inactive(patient_name):
     global last_activity
@@ -43,7 +43,7 @@ def clear_screen_if_inactive(patient_name):
         if time.time() - last_activity > 120:
             with input_lock:
                 clear_screen_and_prompt(patient_name)
-                last_activity = time.time()  # reset timer after clearing
+                last_activity = time.time()
 
 def receive_full_response(sock):
     buffer = ""
@@ -57,8 +57,8 @@ def receive_full_response(sock):
 def main():
     global last_activity
 
-    # Password protection
-    password = input("Enter password to use the client: ")
+    # Hide password as user types
+    password = getpass.getpass("Enter password to use the client: ")
     if password != "cyberlab":
         print("Incorrect password. Exiting.")
         sys.exit(1)
@@ -72,7 +72,7 @@ def main():
             scenario = int(input("Choose scenario (1-16): "))
             if 1 <= scenario <= 16:
                 last_activity = time.time()
-                os.system('cls' if os.name == 'nt' else 'clear')  # Clear screen immediately after choice
+                os.system('cls' if os.name == 'nt' else 'clear')
                 break
             print("Invalid choice. Try again.")
         except ValueError:
@@ -83,11 +83,9 @@ def main():
         sock.sendall(str(scenario).encode('utf-8'))
         patient_name = sock.recv(1024).decode('utf-8').strip()
 
-        # Start inactivity-clearing thread
         threading.Thread(target=clear_screen_if_inactive, args=(patient_name,), daemon=True).start()
 
         while True:
-            # If pending_prompt is set (screen was cleared), read input without printing prompt again
             if pending_prompt.is_set():
                 with input_lock:
                     query = input().strip()
