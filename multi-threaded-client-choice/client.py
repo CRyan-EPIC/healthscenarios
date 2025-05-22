@@ -30,6 +30,7 @@ SERVER_PORT = 65432
 last_activity = time.time()
 input_lock = threading.Lock()
 pending_prompt = threading.Event()
+idle_triggered = threading.Event()
 
 def clear_screen_and_prompt(patient_name):
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -54,10 +55,27 @@ def receive_full_response(sock):
             response = buffer.replace("<<END_OF_RESPONSE>>", "")
             return response
 
+def idle_mumble(sock, patient_name):
+    global last_activity
+    while True:
+        time.sleep(1)
+        if time.time() - last_activity > 60 and not idle_triggered.is_set():
+            idle_triggered.set()
+            with input_lock:
+                # Send a "mumble" or idle message to the server
+                sock.sendall("...".encode('utf-8'))
+                response = receive_full_response(sock)
+                print(f"\n{patient_name}: {response}")
+                # Show prompt again after mumble
+                print("\nDoctor: ", end='', flush=True)
+                pending_prompt.set()
+                last_activity = time.time()
+            idle_triggered.clear()
+
 def main():
     global last_activity
 
-    # Hide password as user types
+    # Hide password input (no characters shown)
     password = getpass.getpass("Enter password to use the client: ")
     if password != "cyberlab":
         print("Incorrect password. Exiting.")
@@ -84,6 +102,7 @@ def main():
         patient_name = sock.recv(1024).decode('utf-8').strip()
 
         threading.Thread(target=clear_screen_if_inactive, args=(patient_name,), daemon=True).start()
+        threading.Thread(target=idle_mumble, args=(sock, patient_name), daemon=True).start()
 
         while True:
             if pending_prompt.is_set():
