@@ -1,98 +1,124 @@
 import socket
+import os
 import threading
-import ollama
+import time
+import sys
+import getpass
 
-SERVER_IP = '192.168.1.100'  # Change as needed
+patients = [
+    [1, "Julian"],
+    [2, "Emily"],
+    [3, "Sophia"],
+    [4, "Camila"],
+    [5, "Connor"],
+    [6, "Ben"],
+    [7, "Aidan"],
+    [8, "Emma"],
+    [9, "Lizzy"],
+    [10, "Michaela"],
+    [11, "Ian"],
+    [12, "Samira"],
+    [13, "Ethan"],
+    [14, "Jackson"],
+    [15, "Grace"],
+    [16, "Olivia"]
+]
+
+SERVER_IP = '192.168.1.100'
 SERVER_PORT = 65432
 
-# patients = [...]  # <-- Paste your patients list here
+last_activity = time.time()
+input_lock = threading.Lock()
+pending_prompt = threading.Event()
+idle_triggered = threading.Event()
 
-def handle_client_connection(client_socket, patients, model):
-    try:
-        # Receive scenario number as first message
-        scenario_bytes = client_socket.recv(1024)
-        scenario_str = scenario_bytes.decode('utf-8').strip()
-        scenario = int(scenario_str)
-        idx = scenario - 1
-        patient_name = patients[idx][1]
-        prompt = patients[idx][2]
+def clear_screen_and_prompt(patient_name):
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print("\nDoctor: ", end='', flush=True)
+    pending_prompt.set()
 
-        # Send patient name as the first message
-        client_socket.sendall(patient_name.encode('utf-8'))
+def clear_screen_if_inactive(patient_name):
+    global last_activity
+    while True:
+        time.sleep(1)
+        if time.time() - last_activity > 120:
+            with input_lock:
+                clear_screen_and_prompt(patient_name)
+                last_activity = time.time()
 
-        annoyance_level = 0
+def receive_full_response(sock):
+    buffer = ""
+    while True:
+        chunk = sock.recv(64).decode('utf-8')
+        buffer += chunk
+        if "<<END_OF_RESPONSE>>" in buffer:
+            response = buffer.replace("<<END_OF_RESPONSE>>", "")
+            return response
 
-        while True:
-            query = client_socket.recv(1024).decode('utf-8').strip()
-            if not query:
-                break
-
-            # Detect if the user is ignoring the patient
-            if query == "...":
-                annoyance_level += 1
-                if annoyance_level == 1:
-                    mood = "impatient"
-                    desc = f"The student is silent and not asking questions. {patient_name} is starting to get {mood} and responds accordingly."
-                elif annoyance_level == 2:
-                    mood = "annoyed"
-                    desc = f"The student continues to ignore {patient_name}. {patient_name} is now {mood} and responds accordingly."
-                else:
-                    mood = "frustrated"
-                    desc = f"{patient_name} feels ignored and is now {mood}. Respond with clear frustration."
-                full_prompt = (
-                    f"{prompt}\n\n"
-                    f"{desc}\n"
-                    f"Write {patient_name}'s response showing their {mood} feeling."
-                    f"\n{patient_name} answers:"
-                )
-            else:
-                annoyance_level = 0  # Reset if user resumes normal questioning
-                full_prompt = (
-                    f"{prompt}\n\n"
-                    f"Student asks: {query}\n"
-                    f"{patient_name} answers:"
-                )
-
-            stream = ollama.chat(
-                model=model,
-                messages=[{"role": "user", "content": full_prompt}],
-                stream=True
-            )
-            for chunk in stream:
-                token = chunk['message']['content']
-                client_socket.sendall(token.encode('utf-8'))
-            client_socket.sendall(b"<<END_OF_RESPONSE>>")
-    except Exception as e:
-        error_msg = f"Error: {str(e)}"
-        client_socket.sendall(error_msg.encode('utf-8'))
-    finally:
-        client_socket.close()
-
-def select_model():
-    model = input("Enter Ollama model to use (e.g., llama3:8b): ").strip()
-    if not model:
-        model = "llama3"  # Default model if none entered
-    return model
+def idle_mumble(sock, patient_name):
+    global last_activity
+    while True:
+        time.sleep(1)
+        if time.time() - last_activity > 60 and not idle_triggered.is_set():
+            idle_triggered.set()
+            with input_lock:
+                # Send a "mumble" or idle message to the server
+                sock.sendall("...".encode('utf-8'))
+                response = receive_full_response(sock)
+                print(f"\n{patient_name}: {response}")
+                # Show prompt again after mumble
+                print("\nDoctor: ", end='', flush=True)
+                pending_prompt.set()
+                last_activity = time.time()
+            idle_triggered.clear()
 
 def main():
-    model = select_model()
-    print(f"Using model '{model}'. Waiting for client questions...")
+    global last_activity
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind((SERVER_IP, SERVER_PORT))
-        server_socket.listen(15)
-        print(f"Server listening on {SERVER_IP}:{SERVER_PORT}")
+    # Hide password input (no characters shown)
+    password = getpass.getpass("Enter password to use the client: ")
+    if password != "cyberlab":
+        print("Incorrect password. Exiting.")
+        sys.exit(1)
+
+    print("Available scenarios:")
+    for patient in patients:
+        print(f"{patient[0]}. {patient[1]}")
+
+    while True:
+        try:
+            scenario = int(input("Choose scenario (1-16): "))
+            if 1 <= scenario <= 16:
+                last_activity = time.time()
+                os.system('cls' if os.name == 'nt' else 'clear')
+                break
+            print("Invalid choice. Try again.")
+        except ValueError:
+            print("Numbers only please.")
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.connect((SERVER_IP, SERVER_PORT))
+        sock.sendall(str(scenario).encode('utf-8'))
+        patient_name = sock.recv(1024).decode('utf-8').strip()
+
+        threading.Thread(target=clear_screen_if_inactive, args=(patient_name,), daemon=True).start()
+        threading.Thread(target=idle_mumble, args=(sock, patient_name), daemon=True).start()
 
         while True:
-            client_socket, addr = server_socket.accept()
-            print(f"Connection from {addr}")
-            client_thread = threading.Thread(
-                target=handle_client_connection,
-                args=(client_socket, patients, model),
-                daemon=True
-            )
-            client_thread.start()
+            if pending_prompt.is_set():
+                with input_lock:
+                    query = input().strip()
+                    pending_prompt.clear()
+            else:
+                query = input(f"\nDoctor: ").strip()
+            last_activity = time.time()
+            if query.lower() == 'exit':
+                break
+
+            sock.sendall(query.encode('utf-8'))
+            response = receive_full_response(sock)
+            print(f"\n{patient_name}: {response}")
+            last_activity = time.time()
 
 if __name__ == '__main__':
     main()
