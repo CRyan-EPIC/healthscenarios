@@ -60,14 +60,16 @@ def connect_to_server(scenario):
             time.sleep(RECONNECT_DELAY)
 
 def reconnect_and_resend(scenario, last_query):
-    sock, patient_name = connect_to_server(scenario)
-    try:
-        sock.sendall(last_query.encode('utf-8'))
-        response = receive_full_response(sock)
-    except Exception as e:
-        print(f"[Resend failed after reconnect: {e}]")
-        response = "[No response after reconnect]"
-    return sock, patient_name, response
+    while True:
+        sock, patient_name = connect_to_server(scenario)
+        try:
+            sock.sendall(last_query.encode('utf-8'))
+            response = receive_full_response(sock)
+            return sock, patient_name, response
+        except Exception as e:
+            print(f"[Resend failed after reconnect: {e}] Retrying...")
+            sock.close()
+            time.sleep(RECONNECT_DELAY)
 
 def choose_scenario():
     print("Available scenarios:")
@@ -112,14 +114,16 @@ def main():
                 sock, patient_name = connect_to_server(scenario)
                 continue
             last_query = query
-            try:
-                sock.sendall(query.encode('utf-8'))
-                response = receive_full_response(sock)
-            except (TimeoutError, ConnectionError) as e:
-                print(f"\n[Lost connection: {e}] Attempting to reconnect...")
-                sock.close()
-                sock, patient_name, response = reconnect_and_resend(scenario, last_query)
-                print("[Reconnected. Resending your last question.]")
+            while True:
+                try:
+                    sock.sendall(query.encode('utf-8'))
+                    response = receive_full_response(sock)
+                    break  # Success, break inner loop
+                except (TimeoutError, ConnectionError) as e:
+                    print(f"\n[Lost connection: {e}] Attempting to reconnect...")
+                    sock.close()
+                    sock, patient_name, response = reconnect_and_resend(scenario, last_query)
+                    print("[Reconnected. Resending your last question.]")
             print(f"\n{patient_name}: {response}")
         except KeyboardInterrupt:
             print("\nExiting.")
