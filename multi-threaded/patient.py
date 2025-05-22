@@ -3,7 +3,7 @@ import os
 import threading
 import time
 
-SERVER_IP = '192.168.1.100'
+SERVER_IP = '192.168.1.100'  # Change to your server's IP if needed
 SERVER_PORT = 65432
 
 clear_flag = threading.Event()
@@ -12,6 +12,15 @@ def clear_screen_periodically():
     while True:
         time.sleep(60)
         clear_flag.set()
+
+def receive_full_response(sock):
+    buffer = ""
+    while True:
+        chunk = sock.recv(64).decode('utf-8')
+        buffer += chunk
+        if "<<END_OF_RESPONSE>>" in buffer:
+            response = buffer.replace("<<END_OF_RESPONSE>>", "")
+            return response
 
 def main():
     last_five = []
@@ -35,7 +44,7 @@ def main():
                 last_five = last_five[-5:]
 
             sock.sendall(query.encode('utf-8'))
-            response = sock.recv(4096).decode('utf-8')
+            response = receive_full_response(sock)
             print(f"\n{patient_name}: {response}")
 
 if __name__ == '__main__':
