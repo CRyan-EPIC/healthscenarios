@@ -46,13 +46,13 @@ def select_model():
 
 def handle_client_connection(client_socket, prompt, patient_name, model):
     try:
+        # Send patient name as the first message
+        client_socket.sendall(patient_name.encode('utf-8'))
         while True:
             query = client_socket.recv(1024).decode('utf-8').strip()
             if not query:
-                break  # Client closed connection
-
+                break
             full_prompt = f"{prompt}\n\nStudent asks: {query}\n{patient_name} answers:"
-
             ollama_response = ollama.chat(
                 model=model,
                 messages=[{"role": "user", "content": full_prompt}]
