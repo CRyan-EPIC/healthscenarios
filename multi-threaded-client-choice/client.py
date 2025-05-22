@@ -69,24 +69,26 @@ def reconnect_and_resend(scenario, last_query):
         response = "[No response after reconnect]"
     return sock, patient_name, response
 
+def choose_scenario():
+    print("Available scenarios:")
+    for patient in patients:
+        print(f"{patient[0]}. {patient[1]}")
+    while True:
+        try:
+            scenario = int(input("Choose scenario (1-16): "))
+            if 1 <= scenario <= 16:
+                return scenario
+            print("Invalid choice. Try again.")
+        except ValueError:
+            print("Numbers only please.")
+
 def main():
     password = getpass.getpass("Enter password to use the client: ")
     if password != "cyberlab":
         print("Incorrect password. Exiting.")
         sys.exit(1)
 
-    print("Available scenarios:")
-    for patient in patients:
-        print(f"{patient[0]}. {patient[1]}")
-
-    while True:
-        try:
-            scenario = int(input("Choose scenario (1-16): "))
-            if 1 <= scenario <= 16:
-                break
-            print("Invalid choice. Try again.")
-        except ValueError:
-            print("Numbers only please.")
+    scenario = choose_scenario()
 
     # --- Clear the screen after selection ---
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -102,6 +104,13 @@ def main():
             query = input("\nDoctor: ").strip()
             if query.lower() == 'exit':
                 break
+            if query.lower() == '.switch':
+                sock.close()
+                scenario = choose_scenario()
+                os.system('cls' if os.name == 'nt' else 'clear')
+                print(f"Choose scenario (1-16): {scenario}")
+                sock, patient_name = connect_to_server(scenario)
+                continue
             last_query = query
             try:
                 sock.sendall(query.encode('utf-8'))
