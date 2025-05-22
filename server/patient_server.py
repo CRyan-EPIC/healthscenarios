@@ -25,29 +25,35 @@ patients = [
 ]
 
 def select_scenario():
+    print("Available scenarios:")
+    for patient in patients:
+        print(f"{patient[0]}. {patient[1]}")
     while True:
         try:
             choice = int(input("Choose scenario (1-16): "))
             if 1 <= choice <= 16:
-                for patient in patients:
-                    if patient[0] == choice:
-                        return patient[2]
+                idx = choice - 1
+                return idx, patients[idx][1], patients[idx][2]
             print("Invalid choice. Try again.")
         except ValueError:
             print("Numbers only please.")
 
-prompt = select_scenario()
+def select_model():
+    model = input("Enter Ollama model to use (e.g., gemma3:12b): ").strip()
+    if not model:
+        model = "llama3"  # Default model if none entered
+    return model
 
-def handle_client_connection(client_socket):
+def handle_client_connection(client_socket, prompt, patient_name, model):
     try:
         query = client_socket.recv(1024).decode('utf-8').strip()
         if not query:
             client_socket.sendall(b"No query received.")
             return
 
-        full_prompt = f"{prompt}\n\nStudent asks: {query}\n{patients[[p[0] for p in patients].index(choice)][1]} answers:"
-        
-        response = ollama.chat(full_prompt)
+        full_prompt = f"{prompt}\n\nStudent asks: {query}\n{patient_name} answers:"
+        # Specify the model in the Ollama call
+        response = ollama.chat(model=model, prompt=full_prompt)
         client_socket.sendall(response.encode('utf-8'))
 
     except Exception as e:
@@ -56,10 +62,10 @@ def handle_client_connection(client_socket):
     finally:
         client_socket.close()
 
-# Main function
 def main():
     idx, patient_name, prompt = select_scenario()
-    print(f"Scenario '{patient_name}' selected. Waiting for client questions...")
+    model = select_model()
+    print(f"Scenario '{patient_name}' selected. Using model '{model}'. Waiting for client questions...")
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.bind((SERVER_IP, SERVER_PORT))
         server_socket.listen()
@@ -68,7 +74,7 @@ def main():
         while True:
             client_socket, addr = server_socket.accept()
             print(f"Connection from {addr}")
-            handle_client_connection(client_socket, prompt, patient_name)
+            handle_client_connection(client_socket, prompt, patient_name, model)
 
 if __name__ == '__main__':
     main()
