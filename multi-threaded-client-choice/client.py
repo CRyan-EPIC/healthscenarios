@@ -7,6 +7,7 @@ import getpass
 
 SERVER_IP = '192.168.1.100'
 SERVER_PORT = 65432
+
 RECONNECT_DELAY = 3  # seconds between reconnect attempts
 SOCKET_TIMEOUT = 30  # seconds to wait for server response before retry
 
@@ -75,7 +76,7 @@ def idle_mumble(sock, patient_name, scenario):
                     print(f"\n{patient_name}: {response}")
                 except Exception as e:
                     print(f"\n[Idle mumble failed: {e}] Attempting to reconnect...")
-                    sock, patient_name = reconnect_and_resend(scenario, "...")
+                    sock, patient_name, response = reconnect_and_resend(scenario, "...")
                     print(f"\n{patient_name}: {response}")
                 print("\nDoctor: ", end='', flush=True)
                 pending_prompt.set()
@@ -88,7 +89,7 @@ def connect_to_server(scenario):
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(SOCKET_TIMEOUT)
             sock.connect((SERVER_IP, SERVER_PORT))
-            sock.sendall(str(scenario).encode('utf-8'))  # Send scenario number first
+            sock.sendall(str(scenario).encode('utf-8'))  # Always send scenario number first
             patient_name = sock.recv(1024).decode('utf-8').strip()
             return sock, patient_name
         except Exception as e:
@@ -97,7 +98,7 @@ def connect_to_server(scenario):
 
 def reconnect_and_resend(scenario, last_query):
     sock, patient_name = connect_to_server(scenario)
-    # Resend the last query after reconnecting
+    # Now the server is ready for a question
     try:
         sock.sendall(last_query.encode('utf-8'))
         response = receive_full_response(sock)
@@ -110,7 +111,7 @@ def main():
     global last_activity
 
     password = getpass.getpass("Enter password to use the client: ")
-    if password != "226":
+    if password != "cyberlab":
         print("Incorrect password. Exiting.")
         sys.exit(1)
 
@@ -166,4 +167,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
