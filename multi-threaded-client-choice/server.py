@@ -75,36 +75,25 @@ def handle_client_connection(client_socket, patients, model):
                 annoyance_level += 1
                 last_annoyance_time = current_time
                 if annoyance_level == 1:
-                    mood = "slightly impatient"
-                    desc = (
-                        f"The student is silent or ignoring {patient_name}. "
-                        f"{patient_name} is starting to get {mood} and responds accordingly, "
-                        f"but never insults, never gets angry, and never uses strong language. "
-                        f"Stay gentle, maybe use a mild emoji like 😕, 😑, or 🙄 to show slight agitation."
-                    )
-                elif annoyance_level == 2:
-                    mood = "mildly agitated"
-                    desc = (
-                        f"The student keeps ignoring {patient_name}. "
-                        f"{patient_name} is now {mood} and responds accordingly, "
-                        f"but never insults, never gets angry, and never uses strong language. "
-                        f"Stay gentle and polite, maybe use a mild emoji like 😕, 😑, or 🙄."
+                    idle_prompt = (
+                        f"{patient_name} notices the student is silent for a while. "
+                        f"Respond naturally, maybe saying things like 'Hello?', 'Where did you go?', or humming or singing softly to pass the time. "
+                        f"Stay gentle, never rude or angry. If you choose to hum or sing, do it in a playful or absent-minded way, as a real kid would. "
+                        f"Do not repeat yourself if the silence happens again."
                     )
                 else:
-                    mood = "a little frustrated"
-                    desc = (
-                        f"{patient_name} feels a little frustrated from being ignored, but stays polite and gentle. "
-                        f"Never insult or disrespect the student, and never use strong language. "
-                        f"Use a mild emoji like 😕, 😑, or 🙄 to show gentle agitation."
+                    idle_prompt = (
+                        f"{patient_name} is still waiting after a long silence. "
+                        f"Respond again with a different phrase, such as softly humming a tune, singing a line from a song, or gently asking if anyone is there. "
+                        f"Never be rude, never escalate to anger. Stay in character as a bored or distracted child. "
+                        f"Do not repeat previous idle responses; always use new phrases or actions."
                     )
                 full_prompt = (
                     f"{prompt}\n\n"
                     f"Conversation so far:\n{history_str}"
                     f"Student: ...\n"
-                    f"{desc}\n"
-                    f"Write {patient_name}'s response showing their {mood} feeling, using only mild emojis (like 😕, 😑, 🙄) to show gentle agitation. "
-                    f"Do not repeat previous answers; use new phrases and details each time."
-                    f"\n{patient_name} answers:"
+                    f"{idle_prompt}\n"
+                    f"Write {patient_name}'s response to the long silence:"
                 )
             else:
                 mood = "neutral"
