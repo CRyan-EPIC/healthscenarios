@@ -2,6 +2,7 @@ import socket
 import os
 import threading
 import time
+import sys
 
 patients = [
     [1, "Julian"],
@@ -46,6 +47,13 @@ def receive_full_response(sock):
 
 def main():
     global last_activity
+
+    # Password protection
+    password = input("Enter password to use the client: ")
+    if password != "cyberlab":
+        print("Incorrect password. Exiting.")
+        sys.exit(1)
+
     threading.Thread(target=clear_screen_if_inactive, daemon=True).start()
 
     print("Available scenarios:")
