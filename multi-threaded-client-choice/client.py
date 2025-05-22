@@ -27,14 +27,23 @@ SERVER_IP = '192.168.1.100'   # Change to your server's IP if needed
 SERVER_PORT = 65432
 
 last_activity = time.time()
+input_lock = threading.Lock()
+pending_prompt = threading.Event()
 
-def clear_screen_if_inactive():
+def clear_screen_and_prompt(patient_name):
+    os.system('cls' if os.name == 'nt' else 'clear')
+    # Show Doctor: prompt after clearing
+    print("\nDoctor: ", end='', flush=True)
+    pending_prompt.set()  # Signal to main loop to handle input
+
+def clear_screen_if_inactive(patient_name):
     global last_activity
     while True:
         time.sleep(1)
         if time.time() - last_activity > 120:
-            os.system('cls' if os.name == 'nt' else 'clear')
-            last_activity = time.time()  # reset timer after clearing
+            with input_lock:
+                clear_screen_and_prompt(patient_name)
+                last_activity = time.time()  # reset timer after clearing
 
 def receive_full_response(sock):
     buffer = ""
@@ -53,8 +62,6 @@ def main():
     if password != "cyberlab":
         print("Incorrect password. Exiting.")
         sys.exit(1)
-
-    threading.Thread(target=clear_screen_if_inactive, daemon=True).start()
 
     print("Available scenarios:")
     for patient in patients:
@@ -76,8 +83,17 @@ def main():
         sock.sendall(str(scenario).encode('utf-8'))
         patient_name = sock.recv(1024).decode('utf-8').strip()
 
+        # Start inactivity-clearing thread
+        threading.Thread(target=clear_screen_if_inactive, args=(patient_name,), daemon=True).start()
+
         while True:
-            query = input(f"\nDoctor: ").strip()
+            # If pending_prompt is set (screen was cleared), read input without printing prompt again
+            if pending_prompt.is_set():
+                with input_lock:
+                    query = input().strip()
+                    pending_prompt.clear()
+            else:
+                query = input(f"\nDoctor: ").strip()
             last_activity = time.time()
             if query.lower() == 'exit':
                 break
