@@ -88,7 +88,18 @@ def main():
         except ValueError:
             print("Numbers only please.")
 
+    # --- Clear the screen after selection ---
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+    # --- Print friendly connection info ---
+    print(f"Choose scenario (1-16): {scenario}")
+    print(f"Connecting to server and sending scenario number: {scenario}")
+
     sock, patient_name = connect_to_server(scenario)
+
+    # --- Print patient name as confirmation ---
+    print(f"Connected. Patient name: {patient_name}")
+
     last_query = None
 
     while True:
