@@ -12,19 +12,27 @@ def main():
         patient_name = sock.recv(1024).decode('utf-8').strip()
 
         while True:
-            query = input(f"\Doctor for {patient_name}: ").strip()
+            query = input(f"\nDoctor: ").strip()
             if query.lower() == 'exit':
                 break
 
-            # Update memory (not shown to user)
             last_five.append(query)
             if len(last_five) > 5:
                 last_five = last_five[-5:]
 
             sock.sendall(query.encode('utf-8'))
-            response = sock.recv(4096).decode('utf-8')
-            print(patient_name+": ")
-            print(response)
+
+            print("\n{patient_name}:")
+            # Stream and print tokens as they arrive
+            buffer = ""
+            while True:
+                chunk = sock.recv(64).decode('utf-8')
+                buffer += chunk
+                if "<<END_OF_RESPONSE>>" in buffer:
+                    # Print everything up to the marker
+                    print(buffer.replace("<<END_OF_RESPONSE>>", ""), end="", flush=True)
+                    break
+                print(chunk, end="", flush=True)
 
 if __name__ == '__main__':
     main()
