@@ -25,7 +25,6 @@ patients = [
 SERVER_IP = '192.168.1.100'   # Change to your server's IP if needed
 SERVER_PORT = 65432
 
-clear_flag = threading.Event()
 last_activity = time.time()
 
 def clear_screen_if_inactive():
@@ -34,7 +33,7 @@ def clear_screen_if_inactive():
         time.sleep(1)
         if time.time() - last_activity > 120:
             os.system('cls' if os.name == 'nt' else 'clear')
-            last_activity = time.time()  # reset so it doesn't clear repeatedly
+            last_activity = time.time()  # reset timer after clearing
 
 def receive_full_response(sock):
     buffer = ""
@@ -58,6 +57,7 @@ def main():
             scenario = int(input("Choose scenario (1-16): "))
             if 1 <= scenario <= 16:
                 last_activity = time.time()
+                os.system('cls' if os.name == 'nt' else 'clear')  # Clear screen immediately after choice
                 break
             print("Invalid choice. Try again.")
         except ValueError:
