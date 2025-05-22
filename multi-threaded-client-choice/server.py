@@ -3,7 +3,7 @@ import threading
 import time
 import ollama
 
-SERVER_IP = '192.168.1.100'  # Change as needed
+SERVER_IP = '192.168.1.100'
 SERVER_PORT = 65432
 
 patients = [
@@ -23,133 +23,124 @@ patients = [
     # ... add remaining patients ...
 ]
 
-RECONNECT_DELAY = 3  # seconds between reconnect attempts
-SOCKET_TIMEOUT = 30  # seconds to wait for server response before retry
+def handle_client_connection(client_socket, patients, model):
+    try:
+        scenario_bytes = client_socket.recv(1024)
+        scenario_str = scenario_bytes.decode('utf-8').strip()
+        scenario = int(scenario_str)
+        idx = scenario - 1
+        patient_name = patients[idx][1]
+        prompt = patients[idx][2]
 
+        client_socket.sendall(patient_name.encode('utf-8'))
 
-last_activity = time.time()
-input_lock = threading.Lock()
-pending_prompt = threading.Event()
-idle_triggered = threading.Event()
+        annoyance_level = 0
+        last_annoyance_time = None
 
-def clear_screen_and_prompt(patient_name):
-    os.system('cls' if os.name == 'nt' else 'clear')
-    print("\nDoctor: ", end='', flush=True)
-    pending_prompt.set()
+        while True:
+            query = client_socket.recv(1024).decode('utf-8').strip()
+            if not query:
+                break
 
-def clear_screen_if_inactive(patient_name):
-    global last_activity
-    while True:
-        time.sleep(1)
-        if time.time() - last_activity > 120:
-            with input_lock:
-                clear_screen_and_prompt(patient_name)
-                last_activity = time.time()
+            # Handle .reset command
+            if query == ".reset":
+                annoyance_level = 0
+                last_annoyance_time = None
+                reset_msg = f"{patient_name} seems to relax and returns to their original mood. 😊"
+                client_socket.sendall(reset_msg.encode('utf-8'))
+                client_socket.sendall(b"<<END_OF_RESPONSE>>")
+                continue
 
-def receive_full_response(sock):
-    buffer = ""
-    while True:
-        try:
-            chunk = sock.recv(64).decode('utf-8')
-        except socket.timeout:
-            raise TimeoutError("Timed out waiting for server response.")
-        if not chunk:
-            raise ConnectionError("Server closed connection.")
-        buffer += chunk
-        if "<<END_OF_RESPONSE>>" in buffer:
-            response = buffer.replace("<<END_OF_RESPONSE>>", "")
-            return response
+            current_time = time.time()
+            # Reset annoyance if more than 5 minutes have passed since last "..."
+            if last_annoyance_time and (current_time - last_annoyance_time) > 300:
+                annoyance_level = 0
+                last_annoyance_time = None
 
-def idle_mumble(sock, patient_name):
-    global last_activity
-    while True:
-        time.sleep(1)
-        if time.time() - last_activity > 60 and not idle_triggered.is_set():
-            idle_triggered.set()
-            with input_lock:
-                try:
-                    sock.sendall("...".encode('utf-8'))
-                    response = receive_full_response(sock)
-                    print(f"\n{patient_name}: {response}")
-                except Exception as e:
-                    print(f"\n[Idle mumble failed: {e}]")
-                print("\nDoctor: ", end='', flush=True)
-                pending_prompt.set()
-                last_activity = time.time()
-            idle_triggered.clear()
+            # Lower agitation if user is asking good questions
+            if query and query != "...":
+                if annoyance_level > 0:
+                    annoyance_level -= 1
+                last_annoyance_time = None
 
-def connect_to_server(scenario):
-    while True:
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(SOCKET_TIMEOUT)
-            sock.connect((SERVER_IP, SERVER_PORT))
-            sock.sendall(str(scenario).encode('utf-8'))
-            patient_name = sock.recv(1024).decode('utf-8').strip()
-            return sock, patient_name
-        except Exception as e:
-            print(f"Connection failed ({e}), retrying in {RECONNECT_DELAY} seconds...")
-            time.sleep(RECONNECT_DELAY)
+            # If user is idle or sends "...", escalate impatience quickly
+            if query == "...":
+                annoyance_level += 1
+                last_annoyance_time = current_time
+                if annoyance_level == 1:
+                    mood = "impatient"
+                    desc = (
+                        f"The student is silent or ignoring {patient_name}. "
+                        f"{patient_name} is starting to get {mood} and responds accordingly, "
+                        f"but never insults or is disrespectful. Use an emoji like 🙄, 😒, 😑, or 😕 instead of 'ugh'."
+                    )
+                elif annoyance_level == 2:
+                    mood = "annoyed"
+                    desc = (
+                        f"The student keeps ignoring {patient_name}. "
+                        f"{patient_name} is now {mood} and responds accordingly, "
+                        f"but never insults or is disrespectful. Use an emoji like 😒, 😑, or 😕 instead of 'ugh'."
+                    )
+                else:
+                    mood = "frustrated"
+                    desc = (
+                        f"{patient_name} feels ignored and is now {mood}. Respond with clear frustration, "
+                        f"but never insult or disrespect the student. Use an emoji like 😑, 😕, or 🙄 instead of 'ugh'."
+                    )
+                full_prompt = (
+                    f"{prompt}\n\n"
+                    f"{desc}\n"
+                    f"Write {patient_name}'s response showing their {mood} feeling, using an emoji instead of 'ugh'."
+                    f"\n{patient_name} answers:"
+                )
+            else:
+                mood = "neutral"
+                full_prompt = (
+                    f"{prompt}\n\n"
+                    f"Student asks: {query}\n"
+                    f"{patient_name} answers (in a {mood} and cooperative mood, never insulting or disrespectful, and using emojis only if appropriate):"
+                )
+
+            stream = ollama.chat(
+                model=model,
+                messages=[{"role": "user", "content": full_prompt}],
+                stream=True
+            )
+            for chunk in stream:
+                token = chunk['message']['content']
+                client_socket.sendall(token.encode('utf-8'))
+            client_socket.sendall(b"<<END_OF_RESPONSE>>")
+    except Exception as e:
+        error_msg = f"Error: {str(e)}"
+        client_socket.sendall(error_msg.encode('utf-8'))
+    finally:
+        client_socket.close()
+
+def select_model():
+    model = input("Enter Ollama model to use (e.g., llama3:8b): ").strip()
+    if not model:
+        model = "llama3"
+    return model
 
 def main():
-    global last_activity
+    model = select_model()
+    print(f"Using model '{model}'. Waiting for client questions...")
 
-    password = getpass.getpass("Enter password to use the client: ")
-    if password != "cyberlab":
-        print("Incorrect password. Exiting.")
-        sys.exit(1)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.bind((SERVER_IP, SERVER_PORT))
+        server_socket.listen(15)
+        print(f"Server listening on {SERVER_IP}:{SERVER_PORT}")
 
-    print("Available scenarios:")
-    for patient in patients:
-        print(f"{patient[0]}. {patient[1]}")
-
-    while True:
-        try:
-            scenario = int(input("Choose scenario (1-16): "))
-            if 1 <= scenario <= 16:
-                last_activity = time.time()
-                os.system('cls' if os.name == 'nt' else 'clear')
-                break
-            print("Invalid choice. Try again.")
-        except ValueError:
-            print("Numbers only please.")
-
-    sock, patient_name = connect_to_server(scenario)
-
-    threading.Thread(target=clear_screen_if_inactive, args=(patient_name,), daemon=True).start()
-    threading.Thread(target=idle_mumble, args=(sock, patient_name), daemon=True).start()
-
-    last_query = None
-    while True:
-        try:
-            if pending_prompt.is_set():
-                with input_lock:
-                    query = input().strip()
-                    pending_prompt.clear()
-            else:
-                query = input(f"\nDoctor: ").strip()
-            last_activity = time.time()
-            if query.lower() == 'exit':
-                break
-
-            last_query = query
-            try:
-                sock.sendall(query.encode('utf-8'))
-                response = receive_full_response(sock)
-            except (TimeoutError, ConnectionError) as e:
-                print(f"\n[Lost connection: {e}] Attempting to reconnect...")
-                sock.close()
-                sock, patient_name = connect_to_server(scenario)
-                print("[Reconnected. Resending your last question.]")
-                sock.sendall(last_query.encode('utf-8'))
-                response = receive_full_response(sock)
-            print(f"\n{patient_name}: {response}")
-            last_activity = time.time()
-        except KeyboardInterrupt:
-            print("\nExiting.")
-            break
-
-    sock.close()
+        while True:
+            client_socket, addr = server_socket.accept()
+            print(f"Connection from {addr}")
+            client_thread = threading.Thread(
+                target=handle_client_connection,
+                args=(client_socket, patients, model),
+                daemon=True
+            )
+            client_thread.start()
 
 if __name__ == '__main__':
     main()
