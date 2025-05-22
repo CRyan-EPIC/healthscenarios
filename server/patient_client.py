@@ -8,9 +8,11 @@ def main():
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.connect((SERVER_IP, SERVER_PORT))
+        # Receive patient name from server
+        patient_name = sock.recv(1024).decode('utf-8').strip()
 
         while True:
-            query = input("\nEnter your question for the patient: ").strip()
+            query = input(f"\nEnter your question for {patient_name}: ").strip()
             if query.lower() == 'exit':
                 break
 
