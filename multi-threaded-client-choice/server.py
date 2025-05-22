@@ -27,7 +27,6 @@ patients = [
 
 def handle_client_connection(client_socket, patients, model):
     try:
-        # Receive scenario number as first message
         scenario_bytes = client_socket.recv(1024)
         scenario_str = scenario_bytes.decode('utf-8').strip()
         scenario = int(scenario_str)
@@ -35,16 +34,49 @@ def handle_client_connection(client_socket, patients, model):
         patient_name = patients[idx][1]
         prompt = patients[idx][2]
 
-        # Send patient name as the first message
         client_socket.sendall(patient_name.encode('utf-8'))
+
+        annoyance_level = 0
+        last_annoyance_time = None
 
         while True:
             query = client_socket.recv(1024).decode('utf-8').strip()
             if not query:
                 break
 
-            full_prompt = f"{prompt}\n\nStudent asks: {query}\n{patient_name} answers:"
-            # Stream Ollama response
+            current_time = time.time()
+            # Reset annoyance if more than 5 minutes have passed since last "..."
+            if last_annoyance_time and (current_time - last_annoyance_time) > 300:
+                annoyance_level = 0
+                last_annoyance_time = None
+
+            if query == "...":
+                annoyance_level += 1
+                last_annoyance_time = current_time
+                if annoyance_level == 1:
+                    mood = "impatient"
+                    desc = f"The student is silent and not asking questions. {patient_name} is starting to get {mood} and responds accordingly."
+                elif annoyance_level == 2:
+                    mood = "annoyed"
+                    desc = f"The student continues to ignore {patient_name}. {patient_name} is now {mood} and responds accordingly."
+                else:
+                    mood = "frustrated"
+                    desc = f"{patient_name} feels ignored and is now {mood}. Respond with clear frustration."
+                full_prompt = (
+                    f"{prompt}\n\n"
+                    f"{desc}\n"
+                    f"Write {patient_name}'s response showing their {mood} feeling."
+                    f"\n{patient_name} answers:"
+                )
+            else:
+                annoyance_level = 0
+                last_annoyance_time = None
+                full_prompt = (
+                    f"{prompt}\n\n"
+                    f"Student asks: {query}\n"
+                    f"{patient_name} answers:"
+                )
+
             stream = ollama.chat(
                 model=model,
                 messages=[{"role": "user", "content": full_prompt}],
@@ -61,9 +93,9 @@ def handle_client_connection(client_socket, patients, model):
         client_socket.close()
 
 def select_model():
-    model = input("Enter Ollama model to use (e.g., gemma3:12b): ").strip()
+    model = input("Enter Ollama model to use (e.g., llama3:8b): ").strip()
     if not model:
-        model = "gemma3:12b"  # Default model if none entered
+        model = "llama3"  # Default model if none entered
     return model
 
 def main():
