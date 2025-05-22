@@ -23,7 +23,7 @@ def main():
 
             sock.sendall(query.encode('utf-8'))
             response = sock.recv(4096).decode('utf-8')
-            print("\nResponse from patient:")
+            print(patient_name+": ")
             print(response)
 
 if __name__ == '__main__':
