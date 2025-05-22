@@ -3,7 +3,27 @@ import os
 import threading
 import time
 
-SERVER_IP = '192.168.1.100'
+# Paste your full patients list here, or just the names as below:
+patients = [
+    [1, "Julian", ""],
+    [2, "Emily", ""],
+    [3, "Sophia", ""],
+    [4, "Camila", ""],
+    [5, "Connor", ""],
+    [6, "Ben", ""],
+    [7, "Aidan", ""],
+    [8, "Emma", ""],
+    [9, "Lizzy", ""],
+    [10, "Michaela", ""],
+    [11, "Ian", ""],
+    [12, "Samira", ""],
+    [13, "Ethan", ""],
+    [14, "Jackson", ""],
+    [15, "Grace", ""],
+    [16, "Lucas", ""]
+]
+
+SERVER_IP = '192.168.1.100'   # Change to your server's IP if needed
 SERVER_PORT = 65432
 
 clear_flag = threading.Event()
@@ -27,8 +47,8 @@ def main():
     threading.Thread(target=clear_screen_periodically, daemon=True).start()
 
     print("Available scenarios:")
-    for i in range(1, 17):
-        print(f"{i}. (see scenario list)")
+    for patient in patients:
+        print(f"{patient[0]}. {patient[1]}")
 
     while True:
         try:
