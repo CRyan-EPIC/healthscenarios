@@ -22,7 +22,7 @@ def main():
 
             sock.sendall(query.encode('utf-8'))
 
-            print("\n{patient_name}:")
+            print(f"\n{patient_name}:")
             # Stream and print tokens as they arrive
             buffer = ""
             while True:
