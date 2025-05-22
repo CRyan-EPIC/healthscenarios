@@ -110,7 +110,7 @@ def main():
     global last_activity
 
     password = getpass.getpass("Enter password to use the client: ")
-    if password != "cyberlab":
+    if password != "226":
         print("Incorrect password. Exiting.")
         sys.exit(1)
 
