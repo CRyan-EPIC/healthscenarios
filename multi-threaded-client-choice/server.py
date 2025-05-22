@@ -48,31 +48,48 @@ def handle_client_connection(client_socket, patients, model):
                 annoyance_level = 0
                 last_annoyance_time = None
 
+            # Lower agitation if user is asking good questions
+            if query and query != "...":
+                if annoyance_level > 0:
+                    annoyance_level -= 1
+                last_annoyance_time = None
+
+            # If user is idle or sends "...", escalate impatience quickly
             if query == "...":
                 annoyance_level += 1
                 last_annoyance_time = current_time
                 if annoyance_level == 1:
                     mood = "impatient"
-                    desc = f"The student is silent and not asking questions. {patient_name} is starting to get {mood} and responds accordingly."
+                    desc = (
+                        f"The student is silent or ignoring {patient_name}. "
+                        f"{patient_name} is starting to get {mood} and responds accordingly, "
+                        f"but never insults or is disrespectful. Use an emoji like 🙄, 😒, 😑, or 😕 instead of 'ugh'."
+                    )
                 elif annoyance_level == 2:
                     mood = "annoyed"
-                    desc = f"The student continues to ignore {patient_name}. {patient_name} is now {mood} and responds accordingly."
+                    desc = (
+                        f"The student keeps ignoring {patient_name}. "
+                        f"{patient_name} is now {mood} and responds accordingly, "
+                        f"but never insults or is disrespectful. Use an emoji like 😒, 😑, or 😕 instead of 'ugh'."
+                    )
                 else:
                     mood = "frustrated"
-                    desc = f"{patient_name} feels ignored and is now {mood}. Respond with clear frustration."
+                    desc = (
+                        f"{patient_name} feels ignored and is now {mood}. Respond with clear frustration, "
+                        f"but never insult or disrespect the student. Use an emoji like 😑, 😕, or 🙄 instead of 'ugh'."
+                    )
                 full_prompt = (
                     f"{prompt}\n\n"
                     f"{desc}\n"
-                    f"Write {patient_name}'s response showing their {mood} feeling."
+                    f"Write {patient_name}'s response showing their {mood} feeling, using an emoji instead of 'ugh'."
                     f"\n{patient_name} answers:"
                 )
             else:
-                annoyance_level = 0
-                last_annoyance_time = None
+                mood = "neutral"
                 full_prompt = (
                     f"{prompt}\n\n"
                     f"Student asks: {query}\n"
-                    f"{patient_name} answers:"
+                    f"{patient_name} answers (in a {mood} and cooperative mood, never insulting or disrespectful, and using emojis only if appropriate):"
                 )
 
             stream = ollama.chat(
@@ -93,7 +110,7 @@ def handle_client_connection(client_socket, patients, model):
 def select_model():
     model = input("Enter Ollama model to use (e.g., llama3:8b): ").strip()
     if not model:
-        model = "llama3"  # Default model if none entered
+        model = "llama3"
     return model
 
 def main():
@@ -118,3 +135,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
