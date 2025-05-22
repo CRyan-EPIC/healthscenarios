@@ -52,15 +52,21 @@ def handle_client_connection(client_socket, prompt, patient_name, model):
             return
 
         full_prompt = f"{prompt}\n\nStudent asks: {query}\n{patient_name} answers:"
-        # Specify the model in the Ollama call
-        response = ollama.chat(model=model, prompt=full_prompt)
-        client_socket.sendall(response.encode('utf-8'))
+
+        # Correct Ollama API usage
+        ollama_response = ollama.chat(
+            model=model,
+            messages=[{"role": "user", "content": full_prompt}]
+        )
+        response_text = ollama_response['message']['content']
+        client_socket.sendall(response_text.encode('utf-8'))
 
     except Exception as e:
         error_msg = f"Error: {str(e)}"
         client_socket.sendall(error_msg.encode('utf-8'))
     finally:
         client_socket.close()
+
 
 def main():
     idx, patient_name, prompt = select_scenario()
