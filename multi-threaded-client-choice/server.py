@@ -23,42 +23,71 @@ patients = [
     # ... add remaining patients ...
 ]
 
-# Global request queue
-request_queue = queue.Queue()
-
-class LLMRequest:
-    def __init__(self, client_socket, patient_name, prompt, conversation_history, query, annoyance_level, last_annoyance_time, scenario_idx):
-        self.client_socket = client_socket
-        self.patient_name = patient_name
-        self.prompt = prompt
-        self.conversation_history = conversation_history
-        self.query = query
-        self.annoyance_level = annoyance_level
-        self.last_annoyance_time = last_annoyance_time
-        self.response_event = threading.Event()
-        self.response = None
-        self.scenario_idx = scenario_idx
-
-def llm_worker(model, patients):
-    while True:
-        req = request_queue.get()
+def handle_client_connection(client_socket, patients, model):
+    try:
+        # --- Robust scenario and patient list validation ---
         try:
-            # --- Build prompt as in your latest code ---
-            patient_name = req.patient_name
-            prompt = req.prompt
-            conversation_history = req.conversation_history
-            query = req.query
-            annoyance_level = req.annoyance_level
-            last_annoyance_time = req.last_annoyance_time
+            scenario_bytes = client_socket.recv(1024)
+            scenario_str = scenario_bytes.decode('utf-8').strip()
+            scenario = int(scenario_str)
+            idx = scenario - 1
+            if not patients:
+                raise ValueError("Patients list is empty on the server.")
+            if idx < 0 or idx >= len(patients):
+                raise ValueError("Invalid scenario number.")
+            patient_name = patients[idx][1]
+            prompt = patients[idx][2]
+        except Exception as e:
+            error_msg = f"Error: {str(e)}"
+            client_socket.sendall(error_msg.encode('utf-8'))
+            client_socket.close()
+            return
+
+        client_socket.sendall(patient_name.encode('utf-8'))
+
+        annoyance_level = 0
+        last_annoyance_time = None
+        conversation_history = []
+
+        while True:
+            try:
+                query = client_socket.recv(1024).decode('utf-8').strip()
+            except Exception:
+                break
+            if not query:
+                break
+
+            # .reset command resets mood and history
+            if query == ".reset":
+                annoyance_level = 0
+                last_annoyance_time = None
+                conversation_history = []
+                reset_msg = f"{patient_name} seems to relax and returns to their original mood. 😊"
+                client_socket.sendall(reset_msg.encode('utf-8'))
+                client_socket.sendall(b"<<END_OF_RESPONSE>>")
+                continue
+
+            current_time = time.time()
+            # Reset annoyance if >5 minutes since last "..."
+            if last_annoyance_time and (current_time - last_annoyance_time) > 300:
+                annoyance_level = 0
+                last_annoyance_time = None
+
+            # Lower agitation if user is asking good questions
+            if query and query != "...":
+                if annoyance_level > 0:
+                    annoyance_level -= 1
+                last_annoyance_time = None
 
             # Prepare conversation history string (last 8 Q&A pairs)
             history_str = ""
             for q, a in conversation_history[-8:]:
                 history_str += f"Student: {q}\n{patient_name}: {a}\n"
 
+            # Compose prompt
             if query == "...":
                 annoyance_level += 1
-                last_annoyance_time = time.time()
+                last_annoyance_time = current_time
                 if annoyance_level == 1:
                     idle_prompt = (
                         f"{patient_name} notices the student is silent for a while. "
@@ -91,78 +120,33 @@ def llm_worker(model, patients):
                 )
 
             # Get response from LLM
-            stream = ollama.chat(
-                model=model,
-                messages=[{"role": "user", "content": full_prompt}],
-                stream=True
-            )
-            answer = ""
-            for chunk in stream:
-                token = chunk['message']['content']
-                answer += token
-
-            req.response = answer
-        except Exception as e:
-            req.response = f"Error: {str(e)}"
-        finally:
-            req.response_event.set()
-            request_queue.task_done()
-
-def handle_client_connection(client_socket, patients, model):
-    try:
-        scenario_bytes = client_socket.recv(1024)
-        scenario_str = scenario_bytes.decode('utf-8').strip()
-        scenario = int(scenario_str)
-        idx = scenario - 1
-        patient_name = patients[idx][1]
-        prompt = patients[idx][2]
-
-        client_socket.sendall(patient_name.encode('utf-8'))
-
-        annoyance_level = 0
-        last_annoyance_time = None
-        conversation_history = []
-
-        while True:
-            query = client_socket.recv(1024).decode('utf-8').strip()
-            if not query:
-                break
-
-            # .reset command resets mood and history
-            if query == ".reset":
-                annoyance_level = 0
-                last_annoyance_time = None
-                conversation_history = []
-                reset_msg = f"{patient_name} seems to relax and returns to their original mood. 😊"
-                client_socket.sendall(reset_msg.encode('utf-8'))
+            try:
+                stream = ollama.chat(
+                    model=model,
+                    messages=[{"role": "user", "content": full_prompt}],
+                    stream=True
+                )
+                answer = ""
+                for chunk in stream:
+                    token = chunk['message']['content']
+                    client_socket.sendall(token.encode('utf-8'))
+                    answer += token
                 client_socket.sendall(b"<<END_OF_RESPONSE>>")
-                continue
-
-            # Lower agitation if user is asking good questions
-            if query and query != "...":
-                if annoyance_level > 0:
-                    annoyance_level -= 1
-                last_annoyance_time = None
-
-            # Create a request object and put it in the queue
-            req = LLMRequest(
-                client_socket, patient_name, prompt, list(conversation_history), query,
-                annoyance_level, last_annoyance_time, idx
-            )
-            request_queue.put(req)
-            req.response_event.wait()  # Wait for LLM worker to process
-
-            # Send the response to the client
-            answer = req.response
-            client_socket.sendall(answer.encode('utf-8'))
-            client_socket.sendall(b"<<END_OF_RESPONSE>>")
+            except Exception as e:
+                error_msg = f"Error: {str(e)}"
+                client_socket.sendall(error_msg.encode('utf-8'))
+                client_socket.sendall(b"<<END_OF_RESPONSE>>")
+                break
 
             # Save this Q&A to conversation history
             conversation_history.append((query, answer.strip()))
 
     except Exception as e:
-        error_msg = f"Error: {str(e)}"
-        client_socket.sendall(error_msg.encode('utf-8'))
+        try:
+            error_msg = f"Error: {str(e)}"
+            client_socket.sendall(error_msg.encode('utf-8'))
+        except Exception:
+            pass
     finally:
         client_socket.close()
 
@@ -175,9 +159,6 @@ def select_model():
 def main():
     model = select_model()
     print(f"Using model '{model}'. Waiting for client questions...")
-
-    # Start LLM worker thread
-    threading.Thread(target=llm_worker, args=(model, patients), daemon=True).start()
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -197,3 +178,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
