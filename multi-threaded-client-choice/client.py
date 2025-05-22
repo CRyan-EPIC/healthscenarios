@@ -3,35 +3,38 @@ import os
 import threading
 import time
 
-# Paste your full patients list here, or just the names as below:
 patients = [
-    [1, "Julian", ""],
-    [2, "Emily", ""],
-    [3, "Sophia", ""],
-    [4, "Camila", ""],
-    [5, "Connor", ""],
-    [6, "Ben", ""],
-    [7, "Aidan", ""],
-    [8, "Emma", ""],
-    [9, "Lizzy", ""],
-    [10, "Michaela", ""],
-    [11, "Ian", ""],
-    [12, "Samira", ""],
-    [13, "Ethan", ""],
-    [14, "Jackson", ""],
-    [15, "Grace", ""],
-    [16, "Olivia", ""]
+    [1, "Julian"],
+    [2, "Emily"],
+    [3, "Sophia"],
+    [4, "Camila"],
+    [5, "Connor"],
+    [6, "Ben"],
+    [7, "Aidan"],
+    [8, "Emma"],
+    [9, "Lizzy"],
+    [10, "Michaela"],
+    [11, "Ian"],
+    [12, "Samira"],
+    [13, "Ethan"],
+    [14, "Jackson"],
+    [15, "Grace"],
+    [16, "Olivia"]
 ]
 
 SERVER_IP = '192.168.1.100'   # Change to your server's IP if needed
 SERVER_PORT = 65432
 
 clear_flag = threading.Event()
+last_activity = time.time()
 
-def clear_screen_periodically():
+def clear_screen_if_inactive():
+    global last_activity
     while True:
-        time.sleep(60)
-        clear_flag.set()
+        time.sleep(1)
+        if time.time() - last_activity > 120:
+            os.system('cls' if os.name == 'nt' else 'clear')
+            last_activity = time.time()  # reset so it doesn't clear repeatedly
 
 def receive_full_response(sock):
     buffer = ""
@@ -43,8 +46,8 @@ def receive_full_response(sock):
             return response
 
 def main():
-    last_five = []
-    threading.Thread(target=clear_screen_periodically, daemon=True).start()
+    global last_activity
+    threading.Thread(target=clear_screen_if_inactive, daemon=True).start()
 
     print("Available scenarios:")
     for patient in patients:
@@ -54,6 +57,7 @@ def main():
         try:
             scenario = int(input("Choose scenario (1-16): "))
             if 1 <= scenario <= 16:
+                last_activity = time.time()
                 break
             print("Invalid choice. Try again.")
         except ValueError:
@@ -61,27 +65,19 @@ def main():
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.connect((SERVER_IP, SERVER_PORT))
-        # Send scenario number as first message
         sock.sendall(str(scenario).encode('utf-8'))
-        # Receive patient name from server
         patient_name = sock.recv(1024).decode('utf-8').strip()
 
         while True:
-            if clear_flag.is_set():
-                os.system('cls' if os.name == 'nt' else 'clear')
-                clear_flag.clear()
-
             query = input(f"\nDoctor: ").strip()
+            last_activity = time.time()
             if query.lower() == 'exit':
                 break
-
-            last_five.append(query)
-            if len(last_five) > 5:
-                last_five = last_five[-5:]
 
             sock.sendall(query.encode('utf-8'))
             response = receive_full_response(sock)
             print(f"\n{patient_name}: {response}")
+            last_activity = time.time()
 
 if __name__ == '__main__':
     main()
