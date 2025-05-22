@@ -25,26 +25,6 @@ patients = [
     [16, "Olivia", "You are pretending to be an 15-year-old girl named Emily. You’re in the nurse’s office after hitting your head in PE. You were playing a game and accidentally bumped into someone and fell back, hitting your head on the floor. Now you feel kind of weird. You have a slight headache, you’re a little dizzy, and it’s hard to concentrate. You feel a bit slow and just not like yourself.You might say things like, “I feel kind of foggy,” “I’m dizzy,” “My head hurts a little,” or “I don’t remember if I fell forward or backward.” You might also squint at the lights or seem extra tired.Stay in character like a real 11-year-old. Don’t use technical words like “concussion,” “neurological,” or “cognitive” unless a student directly asks about them. Only answer **one question at a time**, and let the students piece it together.Do not talk about sex, illegal drugs, or politics. Don’t respond to insults. Don’t diagnose yourself. Just describe how you feel and what happened using your own words.Do not repeat answers or sentences. You do not know your medical history. You only speak french."]
 ]
 
-def select_scenario():
-    print("Available scenarios:")
-    for patient in patients:
-        print(f"{patient[0]}. {patient[1]}")
-    while True:
-        try:
-            choice = int(input("Choose scenario (1-16): "))
-            if 1 <= choice <= 16:
-                idx = choice - 1
-                return idx, patients[idx][1], patients[idx][2]
-            print("Invalid choice. Try again.")
-        except ValueError:
-            print("Numbers only please.")
-
-def select_model():
-    model = input("Enter Ollama model to use (e.g., gemma3:12b): ").strip()
-    if not model:
-        model = "llama3"  # Default model if none entered
-    return model
-
 def handle_client_connection(client_socket, patients, model):
     try:
         # Receive scenario number as first message
@@ -64,6 +44,7 @@ def handle_client_connection(client_socket, patients, model):
                 break
 
             full_prompt = f"{prompt}\n\nStudent asks: {query}\n{patient_name} answers:"
+            # Stream Ollama response
             stream = ollama.chat(
                 model=model,
                 messages=[{"role": "user", "content": full_prompt}],
@@ -79,25 +60,29 @@ def handle_client_connection(client_socket, patients, model):
     finally:
         client_socket.close()
 
+def select_model():
+    model = input("Enter Ollama model to use (e.g., gemma3:12b): ").strip()
+    if not model:
+        model = "gemma3:12b"  # Default model if none entered
+    return model
+
 def main():
-    idx, patient_name, prompt = select_scenario()
     model = select_model()
-    print(f"Scenario '{patient_name}' selected. Using model '{model}'. Waiting for client questions...")
+    print(f"Using model '{model}'. Waiting for client questions...")
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket.bind((SERVER_IP, SERVER_PORT))
-        server_socket.listen(15)  # backlog of 15 connections
+        server_socket.listen(15)
         print(f"Server listening on {SERVER_IP}:{SERVER_PORT}")
 
         while True:
             client_socket, addr = server_socket.accept()
             print(f"Connection from {addr}")
-            # Start a new thread for each client
             client_thread = threading.Thread(
                 target=handle_client_connection,
-                args=(client_socket, prompt, patient_name, model),
-                daemon=True  # so threads exit when main thread exits
+                args=(client_socket, patients, model),
+                daemon=True
             )
             client_thread.start()
 
