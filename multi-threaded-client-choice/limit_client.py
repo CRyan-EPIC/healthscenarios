@@ -5,7 +5,7 @@ import getpass
 import os
 import threading
 
-SERVER_IP = '10.171.159.254'
+SERVER_IP = '192.168.1.100'
 SERVER_PORT = 65432
 SOCKET_TIMEOUT = 30
 RECONNECT_DELAY = 3
@@ -160,58 +160,9 @@ def main():
 
     empty_input_count = 0
     EMPTY_INPUT_THRESHOLD = 3
+    last_prompt_time = 0
+    PROMPT_COOLDOWN = 3  # seconds
 
     while True:
         try:
-            query = input("\nDoctor: ").strip()
-            last_activity = time.time()
-
-            if query == '':
-                empty_input_count += 1
-                if empty_input_count >= EMPTY_INPUT_THRESHOLD:
-                    print("Warning: Please do not spam empty inputs.")
-                else:
-                    print("Empty input received.")
-                continue
-            else:
-                empty_input_count = 0  # Reset on valid input
-
-            if query.lower() == 'exit':
-                break
-            if query.lower() == '.switch':
-                sock.close()
-                scenario = choose_scenario()
-                os.system('cls' if os.name == 'nt' else 'clear')
-                print(f"Choose scenario (1-16): {scenario}")
-                sock, patient_name = connect_to_server(scenario)
-                # Update references for idle thread
-                sock_ref[0] = sock
-                patient_name_ref[0] = patient_name
-                scenario_ref[0] = scenario
-                continue
-            last_query = query
-            while True:
-                try:
-                    sock.sendall(query.encode('utf-8'))
-                    print(f"\n{patient_name}: ", end='', flush=True)
-                    for token in stream_response(sock):
-                        print(token, end='', flush=True)
-                    print()
-                    break  # Success, break inner loop
-                except (TimeoutError, ConnectionError) as e:
-                    print(f"\n[Lost connection: {e}] Attempting to reconnect...")
-                    sock.close()
-                    sock, patient_name = reconnect_and_resend(scenario, last_query)
-                    print("[Reconnected. Resending your last question.]")
-                    # Update references for idle thread
-                    sock_ref[0] = sock
-                    patient_name_ref[0] = patient_name
-            idle_triggered.clear()
-        except KeyboardInterrupt:
-            print("\nExiting.")
-            break
-
-    sock.close()
-
-if __name__ == '__main__':
-    main()
+            query = input
