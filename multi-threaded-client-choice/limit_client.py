@@ -5,7 +5,7 @@ import getpass
 import os
 import threading
 
-SERVER_IP = '192.168.1.100'
+SERVER_IP = '10.171.159.254'
 SERVER_PORT = 65432
 SOCKET_TIMEOUT = 30
 RECONNECT_DELAY = 3
