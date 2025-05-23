@@ -1,6 +1,6 @@
 #!/bin/bash
 sudo apt update
-sudo apt install tmux curl git wget python3-venv kitty -y
+sudo apt install tmux curl git wget python3-venv kitty mes-utils -y
 
 #Install ollama
 curl -fsSL https://ollama.com/install.sh | sh
@@ -8,6 +8,7 @@ cd ~/healthscenarios
 
 #add cron job
 echo "* * * * * cd /home/pi/healthscenarios && /usr/bin/git pull origin main"
+echo "
 
 #download kitty
 curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin
