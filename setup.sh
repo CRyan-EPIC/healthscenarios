@@ -17,17 +17,16 @@ fi
 cd ~/healthscenarios
 
 #add cron job echo "* * * * * cd /home/pi/healthscenarios && /usr/bin/git pull origin main"
-#!/bin/bash
-
-# Git pull cron job for the current user (pi)
+# Git pull cron job for user pi
 GIT_CRON='* * * * * cd /home/pi/healthscenarios && /usr/bin/git pull origin main'
 
-if crontab -l 2>/dev/null | grep -Fxq "$GIT_CRON"; then
+if sudo crontab -u pi -l 2>/dev/null | grep -Fxq "$GIT_CRON"; then
   echo "Git cron job already exists for user pi."
 else
-  (crontab -l 2>/dev/null; echo "$GIT_CRON") | crontab -
+  (sudo crontab -u pi -l 2>/dev/null; echo "$GIT_CRON") | sudo crontab -u pi -
   echo "Git cron job added for user pi."
 fi
+
 
 # Shutdown cron job for root
 SHUTDOWN_CRON='45 11 * * 1-5 /usr/sbin/shutdown -h now'
