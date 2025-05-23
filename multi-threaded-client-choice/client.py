@@ -26,7 +26,7 @@ patients = [
     [12, "Samira"],
     [13, "Ethan"],
     [14, "Jackson"],
-    [15, "Grace"],
+    [15, "Cynthia"],
     [16, "Olivia"]
 ]
 
