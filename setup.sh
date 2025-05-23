@@ -3,7 +3,17 @@ sudo apt update
 sudo apt install tmux curl git wget python3-venv mes-utils sudo apt install fonts-noto-color-emoji -y
 
 #Install ollama
-curl -fsSL https://ollama.com/install.sh | sh
+#!/bin/bash
+
+# Check if ollama is installed
+if command -v ollama >/dev/null 2>&1; then
+    echo "Ollama is already installed."
+else
+    echo "Ollama is not installed. Installing..."
+    curl -fsSL https://ollama.com/install.sh | sh
+fi
+
+#Go into the correct folder
 cd ~/healthscenarios
 
 #add cron job echo "* * * * * cd /home/pi/healthscenarios && /usr/bin/git pull origin main"
