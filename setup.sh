@@ -17,8 +17,28 @@ fi
 cd ~/healthscenarios
 
 #add cron job echo "* * * * * cd /home/pi/healthscenarios && /usr/bin/git pull origin main"
-( crontab -l 2>/dev/null; echo "* * * * * cd /home/pi/healthscenarios && /usr/bin/git pull origin main" ) | crontab -
-( sudo crontab -l 2>/dev/null; echo '45 11 * * 1-5 /usr/sbin/shutdown -h now' ) | sudo crontab -
+#!/bin/bash
+
+# Git pull cron job for the current user (pi)
+GIT_CRON='* * * * * cd /home/pi/healthscenarios && /usr/bin/git pull origin main'
+
+if crontab -l 2>/dev/null | grep -Fxq "$GIT_CRON"; then
+  echo "Git cron job already exists for user pi."
+else
+  (crontab -l 2>/dev/null; echo "$GIT_CRON") | crontab -
+  echo "Git cron job added for user pi."
+fi
+
+# Shutdown cron job for root
+SHUTDOWN_CRON='45 11 * * 1-5 /usr/sbin/shutdown -h now'
+
+if sudo crontab -l 2>/dev/null | grep -Fxq "$SHUTDOWN_CRON"; then
+  echo "Shutdown cron job already exists for root."
+else
+  (sudo crontab -l 2>/dev/null; echo "$SHUTDOWN_CRON") | sudo crontab -
+  echo "Shutdown cron job added for root."
+fi
+
 
 #In case we need local llms
 ollama pull llama3.2:3b
