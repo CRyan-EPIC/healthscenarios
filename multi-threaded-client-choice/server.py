@@ -153,9 +153,9 @@ def handle_client_connection(client_socket, patients, model):
         client_socket.close()
 
 def select_model():
-    model = input("Enter Ollama model to use (e.g., llama3:8b): ").strip()
+    model = input("Enter Ollama model to use (e.g., gemma3:4b): ").strip()
     if not model:
-        model = "llama3"
+        model = "gemma3:4b"
     return model
 
 def main():
