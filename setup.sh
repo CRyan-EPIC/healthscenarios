@@ -40,4 +40,4 @@ fi
 
 
 #In case we need local llms
-ollama pull llama3.2:3b
+#ollama pull llama3.2:3b
