@@ -8,8 +8,9 @@ import threading
 SERVER_IP = '10.171.159.254'
 SERVER_PORT = 65432
 SOCKET_TIMEOUT = 30
-RECONNECT_DELAY = 5
+RECONNECT_DELAY = 3
 IDLE_TIMEOUT = 60  # seconds
+MAX_PROMPT_LENGTH = 256  # bytes
 
 patients = [
     [1, "Julian"],
@@ -167,6 +168,10 @@ def main():
         try:
             query = input("\nDoctor: ").strip()
             last_activity = time.time()
+
+            if len(query.encode('utf-8')) > MAX_PROMPT_LENGTH:
+                print(f"Prompt too long! Limit is {MAX_PROMPT_LENGTH} bytes. Please shorten your input.")
+                continue
 
             if query == '':
                 empty_input_count += 1
