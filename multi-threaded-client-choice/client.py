@@ -35,24 +35,39 @@ idle_lock = threading.Lock()
 idle_triggered = threading.Event()
 
 def stream_response(sock):
-    buffer = ""
+    buffer = bytearray()
+    decoder = None
     while True:
         try:
-            chunk = sock.recv(64).decode('utf-8')
-        except socket.timeout:
+            chunk = sock.recv(64)
+            if not chunk:
+                raise ConnectionError("Server closed connection.")
+            buffer.extend(chunk)
+            while True:
+                try:
+                    # Try to decode as much as possible
+                    decoded = buffer.decode('utf-8')
+                    if "<<END_OF_RESPONSE>>" in decoded:
+                        idx = decoded.index("<<END_OF_RESPONSE>>")
+                        to_yield = decoded[:idx]
+                        if to_yield:
+                            yield to_yield
+                        return
+                    if decoded:
+                        yield decoded
+                        buffer.clear()
+                    break
+                except UnicodeDecodeError as e:
+                    # Not enough bytes for a full character, wait for more
+                    # Only decode up to the valid part
+                    valid_up_to = e.start
+                    if valid_up_to > 0:
+                        part = buffer[:valid_up_to].decode('utf-8', errors='replace')
+                        yield part
+                        buffer = buffer[valid_up_to:]
+                    break
+        except (socket.timeout, ConnectionResetError):
             raise TimeoutError("Timed out waiting for server response.")
-        if not chunk:
-            raise ConnectionError("Server closed connection.")
-        buffer += chunk
-        if "<<END_OF_RESPONSE>>" in buffer:
-            idx = buffer.index("<<END_OF_RESPONSE>>")
-            to_yield = buffer[:idx]
-            if to_yield:
-                yield to_yield
-            return
-        if buffer:
-            yield buffer
-            buffer = ""
 
 def connect_to_server(scenario):
     while True:
