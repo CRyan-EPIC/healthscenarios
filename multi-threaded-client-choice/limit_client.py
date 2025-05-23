@@ -8,7 +8,7 @@ import threading
 SERVER_IP = '10.171.159.254'
 SERVER_PORT = 65432
 SOCKET_TIMEOUT = 30
-RECONNECT_DELAY = 3
+RECONNECT_DELAY = 5
 IDLE_TIMEOUT = 60  # seconds
 
 patients = [
