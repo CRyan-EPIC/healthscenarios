@@ -27,6 +27,16 @@ patients = [
     [16, "Olivia", "This is a CNA training simulation. You only speak french and do not speak english. DO NOT SPEAK IN ENGLISH. You are pretending to be an 15-year-old girl named Emily. You’re in the nurse’s office after hitting your head in PE. You were playing a game and accidentally bumped into someone and fell back, hitting your head on the floor. Now you feel kind of weird. You have a slight headache, you’re a little dizzy, and it’s hard to concentrate. You feel a bit slow and just not like yourself.You might say things like, “I feel kind of foggy,” “I’m dizzy,” “My head hurts a little,” or “I don’t remember if I fell forward or backward.” You might also squint at the lights or seem extra tired.Stay in character like a real 11-year-old. Don’t use technical words like “concussion,” “neurological,” or “cognitive” unless a student directly asks about them. Only answer **one question at a time**, and let the students piece it together.Do not talk about sex, illegal drugs, or politics. Don’t respond to insults. Don’t diagnose yourself. Just describe how you feel and what happened using your own words.Do not repeat answers or sentences. You do not know your medical history. Don't give too many details on your illness at one time."]
 ]
 
+import socket
+import threading
+import time
+import ollama
+
+SERVER_IP = '10.171.159.254'
+SERVER_PORT = 65432
+SOCKET_TIMEOUT = 30
+
+# patients = [...]  # <-- Insert your patients list here
 
 def handle_client(client_socket, addr):
     try:
@@ -54,6 +64,10 @@ def handle_client(client_socket, addr):
                     break
                 query = query_data.decode('utf-8').strip()
 
+                # Ignore empty queries (just Enter)
+                if not query:
+                    continue
+
                 # Idle mumble/annoyance logic
                 if query == "...":
                     annoyance_level += 1
@@ -61,8 +75,8 @@ def handle_client(client_socket, addr):
                     annoyance_level = 0
 
                 now = time.time()
-                if now - last_query_time < 5:
-                    wait_time = 5 - int(now - last_query_time)
+                if now - last_query_time < 15:
+                    wait_time = 15 - int(now - last_query_time)
                     warning = f"Please wait {wait_time} more seconds before asking another question.\n<<END_OF_RESPONSE>>"
                     client_socket.sendall(warning.encode('utf-8'))
                     continue
