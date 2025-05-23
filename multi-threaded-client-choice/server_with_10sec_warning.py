@@ -61,8 +61,8 @@ def handle_client(client_socket, addr):
                     annoyance_level = 0
 
                 now = time.time()
-                if now - last_query_time < 15:
-                    wait_time = 15 - int(now - last_query_time)
+                if now - last_query_time < 5:
+                    wait_time = 5 - int(now - last_query_time)
                     warning = f"Please wait {wait_time} more seconds before asking another question.\n<<END_OF_RESPONSE>>"
                     client_socket.sendall(warning.encode('utf-8'))
                     continue
