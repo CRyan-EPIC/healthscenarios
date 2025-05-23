@@ -5,7 +5,7 @@ import time
 import sys
 import getpass
 
-SERVER_IP = '10.0.0.7'
+SERVER_IP = '10.171.159.254'
 SERVER_PORT = 65432
 SOCKET_TIMEOUT = 30
 RECONNECT_DELAY = 3
