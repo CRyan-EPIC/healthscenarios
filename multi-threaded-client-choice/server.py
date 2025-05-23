@@ -3,7 +3,7 @@ import threading
 import time
 import ollama
 
-SERVER_IP = '10.0.0.7'
+SERVER_IP = '10.171.159.254'
 SERVER_PORT = 65432
 
 patients = [
