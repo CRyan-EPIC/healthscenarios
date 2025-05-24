@@ -1,6 +1,6 @@
 #!/bin/bash
 sudo apt update
-sudo apt install tmux curl git wget python3-venv fonts-noto-color-emoji -y
+sudo apt install tmux curl git wget python3-venv fonts-noto-color-emoji chromium-browser -y
 
 #Install ollama
 #!/bin/bash
