@@ -162,7 +162,7 @@ def main():
     empty_input_count = 0
     EMPTY_INPUT_THRESHOLD = 3
     last_prompt_time = 0
-    PROMPT_COOLDOWN = 5  # seconds
+    PROMPT_COOLDOWN = 7  # seconds
 
     while True:
         try:
