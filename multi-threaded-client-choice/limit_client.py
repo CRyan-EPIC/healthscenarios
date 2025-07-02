@@ -140,7 +140,7 @@ def idle_mumble_thread(sock_ref, patient_name_ref, scenario_ref):
 def main():
     global last_activity
     password = getpass.getpass("Enter password to use the client: ")
-    if password != "cyberlab":
+    if password != "":
         print("Incorrect password. Exiting.")
         sys.exit(1)
 
