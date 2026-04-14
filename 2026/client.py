@@ -29,6 +29,11 @@ patients = [
     [14, "Jackson"],
     [15, "Cynthia"],
     [16, "Olivia"]
+    [17, "Leo"]
+    [18, "Zoe"]
+    [19, "Tyler"]
+    [20, "Riley"]
+    [21, "Mason"]
 ]
 
 last_activity = time.time()
