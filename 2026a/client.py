@@ -14,7 +14,8 @@ from rich.columns import Columns
 from rich.rule import Rule
 from rich import box
 
-SERVER_IP = '10.171.159.254'
+#SERVER_IP = '10.171.159.254'
+SERVER_IP = '10.171.132.99'
 SERVER_PORT = 65432
 SOCKET_TIMEOUT = 30
 RECONNECT_DELAY = 3
